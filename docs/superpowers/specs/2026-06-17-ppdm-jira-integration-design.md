@@ -11,6 +11,7 @@ This is the master design document. It links the customer-facing **PRD** and the
 ## Document map
 
 - **PRD** — `docs/prd/PRD-ppdm-jira-integration.md` (problem, goals, requirements, success metrics, milestones).
+- **Jira integration contract** — `docs/design/jira-integration-contract.md` (endpoints, ADF payloads, JQL dedup, remote-link traceability, field mapping, errors).
 - **ADRs** — `docs/adr/`:
   - ADR-0001 — Polling over push (PPDM exposes only SMTP/SNMP push; REST polling chosen).
   - ADR-0002 — PowerShell implementation (+ revisit trigger to Go at fleet scale).
@@ -103,11 +104,22 @@ for each PPDM instance:
 
 ## API contract details (from the provided specs)
 
+### PPDM (read side)
 - **Auth:** `POST /api/v2/login` → Bearer token; send `Authorization: Bearer <token>`; refresh on `401`.
 - **Alerts:** `GET /api/v2/alerts?filter=<severity+time>&pageSize=...` with `queryState` paging.
 - **Activities:** `GET /api/v2/activities?filter=<state+result.status+time>&pageSize=...` with paging.
-- **Jira create:** `POST /rest/api/3/issue`; **search:** `GET/POST /rest/api/3/search` (JQL on dedup label); **comment:** `POST /rest/api/3/issue/{key}/comment`.
-- **Open validation item (M0 spike):** confirm PPDM filter operator syntax (`eq`/`in`/`gt`) and timestamp format, and confirm Jira flavor (Cloud vs DC) auth.
+
+### Jira (write side)
+Full detail in **`docs/design/jira-integration-contract.md`** (grounded in `docs/swagger/jira-swagger-v3.json`). Summary:
+- **Create:** `POST /rest/api/3/issue` — `description` is **ADF (Atlassian Document Format)**, not a plain string in v3.
+- **Dedup search:** `POST /rest/api/3/search/jql` — JQL on the sanitised dedup **label** (`ppdm_<instance>_<id>`) filtered to `statusCategory != Done`.
+- **Recurrence comment:** `POST /rest/api/3/issue/{key}/comment` (ADF body).
+- **Traceability:** `POST /rest/api/3/issue/{key}/remotelink` with `globalId` = dedup key → idempotent deep-link back to the PPDM alert/activity.
+- **Auth abstraction:** Cloud (Basic `email:api_token`, v3, ADF) vs Data Center (Bearer PAT, v2, wiki) behind one `JiraClient` config.
+
+### Open validation items (M0 spike)
+- Confirm PPDM filter operator syntax (`eq`/`in`/`gt`) and timestamp format.
+- Confirm Jira flavour (Cloud v3 / ADF vs DC v2 / wiki) and `/search/jql` pagination token shape.
 
 ## Error handling & resilience
 

@@ -64,7 +64,8 @@ This project delivers an automated integration that **converts qualifying PPDM a
 | FR-4 | Normalize each alert/activity into a common **Incident** object with a stable dedup key, title, body, severity, source, and back-links. |
 | FR-5 | Route each Incident to a Jira `{project, component, labels, assignee/group, priority}` via the external routing table, with a default fallback rule so nothing is dropped. |
 | FR-6 | Before creating, search Jira (JQL) for an **open** issue carrying the Incident's dedup key; if found, add a recurrence comment instead of creating a duplicate. |
-| FR-7 | Create a Jira issue (`POST /rest/api/3/issue`) with the dedup key stored on a label and a searchable field, severity mapped to priority, and PPDM back-links in the description. |
+| FR-7 | Create a Jira issue (`POST /rest/api/3/issue`) with the dedup key stored as a searchable label, severity mapped to priority, and the body rendered as ADF (Atlassian Document Format) on Jira Cloud v3. |
+| FR-7a | Attach a Jira **remote link** (`POST /rest/api/3/issue/{key}/remotelink`, `globalId` = dedup key) deep-linking back to the originating PPDM alert/activity, for end-to-end traceability. |
 | FR-8 | Persist a per-instance watermark only **after** a fully successful run; on failure, do not advance it (safe replay). |
 | FR-9 | Support `-DryRun`: compute and log all intended actions without calling Jira write APIs. |
 | FR-10 | Process each PPDM instance in isolation: one instance failing must not stop the others. |
