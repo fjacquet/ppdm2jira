@@ -9,7 +9,9 @@ Describe 'Module loads' {
             Get-Command ConvertTo-Ppdm2JiraIncident -ErrorAction Stop | Should -Not -BeNullOrEmpty
         }
     }
-    It 'exports nothing public yet' {
-        (Get-Module Ppdm2Jira).ExportedFunctions.Count | Should -Be 0
+    It 'exports Invoke-Ppdm2JiraSync as the single public function' {
+        $exported = (Get-Module Ppdm2Jira).ExportedFunctions
+        $exported.Count | Should -Be 1
+        $exported.Keys | Should -Contain 'Invoke-Ppdm2JiraSync'
     }
 }
