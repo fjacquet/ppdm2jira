@@ -65,7 +65,7 @@ Describe 'Invoke-Ppdm2JiraSync' {
         InModuleScope Ppdm2Jira -Parameters @{ settingsPath = $script:settingsPath } {
             Mock New-Ppdm2JiraIssue { throw 'boom' }
             Mock Set-Ppdm2JiraWatermark {}
-            $rc = Invoke-Ppdm2JiraSync -ConfigPath $settingsPath
+            $rc = Invoke-Ppdm2JiraSync -ConfigPath $settingsPath 2>$null
             $rc | Should -Be 1
             Should -Invoke Set-Ppdm2JiraWatermark -Times 0
         }
