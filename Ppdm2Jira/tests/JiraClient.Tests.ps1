@@ -142,7 +142,9 @@ Describe 'Add-Ppdm2JiraComment' {
 }
 
 Describe 'Invoke-Ppdm2JiraHttp error mapping (PS7)' {
-    It 'maps an HttpResponseException to a StatusCode result instead of throwing' {
+    # HttpResponseException only exists on PowerShell 7+. On Windows PowerShell 5.1
+    # the equivalent path is WebException (covered by the generic catch); skip there.
+    It 'maps an HttpResponseException to a StatusCode result instead of throwing' -Skip:($PSVersionTable.PSVersion.Major -lt 6) {
         InModuleScope Ppdm2Jira {
             $msg = [System.Net.Http.HttpResponseMessage]::new([System.Net.HttpStatusCode]::NotFound)
             $ex  = [Microsoft.PowerShell.Commands.HttpResponseException]::new('404 Not Found', $msg)

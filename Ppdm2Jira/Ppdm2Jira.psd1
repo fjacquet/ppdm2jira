@@ -5,7 +5,7 @@
     Author            = 'Platform / Backup Engineering'
     Description       = 'Polls PPDM alerts/failed backups and creates/updates Jira issues. Runtime deps (not import-enforced): PPDM-pwsh, Microsoft.PowerShell.SecretManagement.'
     PowerShellVersion = '5.1'
-    FunctionsToExport = @('Invoke-Ppdm2JiraSync', 'Get-Ppdm2JiraWatermark', 'Set-Ppdm2JiraWatermark')
+    FunctionsToExport = @('Invoke-Ppdm2JiraSync')
     CmdletsToExport   = @()
     VariablesToExport = @()
     AliasesToExport   = @()

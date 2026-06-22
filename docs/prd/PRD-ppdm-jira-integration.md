@@ -145,3 +145,27 @@ A customer-editable mapping (`config/routing.psd1`) keyed on `(source, severity,
 - A simulated Jira outage advances **no** watermark; the next run recovers all events.
 - All credentials are sourced from the secret store; none appear in config or logs.
 - `-DryRun` produces a complete action plan with no Jira writes.
+
+## 16. Implementation status (2026-06-22)
+
+The `Ppdm2Jira` PowerShell module implementing this PRD has been built and verified (Pester 39/39,
+PSScriptAnalyzer clean, Semgrep clean). See the [User Guide](../guide/user-guide.md),
+[CHANGELOG](../../CHANGELOG.md), and the [implementation design spec](../superpowers/specs/2026-06-22-ppdm-jira-module-implementation-design.md).
+
+As-built decisions and deviations from the original design drafts:
+
+- **Both Jira flavours** implemented — Cloud (v3/Basic/ADF) and Data Center (v2/Bearer/wiki).
+- **Per-incident failure fails the instance** (no watermark advance) rather than "fail the item,
+  continue others" — see [ADR-0007](../adr/ADR-0007-per-incident-failure-fails-instance.md) and the
+  updated Jira contract §8. This preserves NFR-2 (no data loss).
+- **No alert↔activity correlation** in v1 (Risk in §14 accepted as a known limitation): one failure
+  seen as both an alert and an activity may produce two tickets.
+- **Module manifest omits `RequiredModules`** so the module imports in CI without PPDM-pwsh /
+  SecretManagement present; those dependencies are enforced at runtime instead.
+- **Cross-version HTTP error handling** added so retry / 404-fallback / status-mapping work on both
+  Windows PowerShell (`WebException`) and PowerShell 7 (`HttpResponseException`).
+
+Still pending deployment-time confirmation (M0 spike, §14): exact PPDM filter operator syntax, the
+target Jira deployment flavour, and the PPDM authentication shape (the current build passes a single
+token to `Connect-PPDMapiEndpoint`; username+password would require a `username` config field — see
+the User Guide §3 caveat).
