@@ -66,3 +66,72 @@ Describe 'Invoke-Ppdm2JiraRequest' {
         }
     }
 }
+
+Describe 'Find-Ppdm2JiraOpenIssue' {
+    It 'posts to /search/jql for Cloud and returns the first key' {
+        InModuleScope Ppdm2Jira {
+            $script:path = $null
+            Mock Invoke-Ppdm2JiraHttp {
+                $script:path = $Uri
+                [pscustomobject]@{ StatusCode = 200; Headers = @{}; Content = [pscustomobject]@{ issues = @([pscustomobject]@{ key = 'OPS-1' }) } }
+            }
+            $c = [pscustomobject]@{ baseUrl='https://x'; apiBase='/rest/api/3'; authHeader='Basic z'; tlsValidate=$true }
+            $key = Find-Ppdm2JiraOpenIssue -Client $c -Project 'OPS' -Label 'ppdm_prod1_a1'
+            $key | Should -Be 'OPS-1'
+            $script:path | Should -BeLike '*/rest/api/3/search/jql'
+        }
+    }
+    It 'returns $null when no open issue matches' {
+        InModuleScope Ppdm2Jira {
+            Mock Invoke-Ppdm2JiraHttp { [pscustomobject]@{ StatusCode = 200; Headers = @{}; Content = [pscustomobject]@{ issues = @() } } }
+            $c = [pscustomobject]@{ baseUrl='https://x'; apiBase='/rest/api/3'; authHeader='Basic z'; tlsValidate=$true }
+            Find-Ppdm2JiraOpenIssue -Client $c -Project 'OPS' -Label 'ppdm_prod1_a1' | Should -BeNullOrEmpty
+        }
+    }
+    It 'uses /search for Data Center (v2)' {
+        InModuleScope Ppdm2Jira {
+            $script:path = $null
+            Mock Invoke-Ppdm2JiraHttp { $script:path = $Uri; [pscustomobject]@{ StatusCode = 200; Headers = @{}; Content = [pscustomobject]@{ issues = @() } } }
+            $c = [pscustomobject]@{ baseUrl='https://x'; apiBase='/rest/api/2'; authHeader='Bearer z'; tlsValidate=$true }
+            Find-Ppdm2JiraOpenIssue -Client $c -Project 'OPS' -Label 'l' | Out-Null
+            $script:path | Should -BeLike '*/rest/api/2/search'
+        }
+    }
+}
+
+Describe 'New-Ppdm2JiraIssue' {
+    It 'returns the created key on 201' {
+        InModuleScope Ppdm2Jira {
+            Mock Invoke-Ppdm2JiraHttp { [pscustomobject]@{ StatusCode = 201; Headers = @{}; Content = [pscustomobject]@{ key = 'BKP-42' } } }
+            $c = [pscustomobject]@{ baseUrl='https://x'; apiBase='/rest/api/3'; authHeader='Basic z'; bodyFormat='adf'; tlsValidate=$true }
+            $target = [pscustomobject]@{ project='BKP'; issueType='Incident'; component='Backup Operations'; priorityId='1'; labels=@('ppdm') }
+            $inc = [pscustomobject]@{ title='t'; body='b' }
+            New-Ppdm2JiraIssue -Client $c -Target $target -Incident $inc | Should -Be 'BKP-42'
+        }
+    }
+    It 'throws on 401' {
+        InModuleScope Ppdm2Jira {
+            Mock Invoke-Ppdm2JiraHttp { [pscustomobject]@{ StatusCode = 401; Headers = @{}; Content = $null } }
+            $c = [pscustomobject]@{ baseUrl='https://x'; apiBase='/rest/api/3'; authHeader='Basic z'; bodyFormat='adf'; tlsValidate=$true }
+            $target = [pscustomobject]@{ project='BKP'; issueType='Incident'; priorityId='1'; labels=@(); component=$null }
+            { New-Ppdm2JiraIssue -Client $c -Target $target -Incident ([pscustomobject]@{ title='t'; body='b' }) } | Should -Throw
+        }
+    }
+}
+
+Describe 'Add-Ppdm2JiraComment' {
+    It 'returns $true on success' {
+        InModuleScope Ppdm2Jira {
+            Mock Invoke-Ppdm2JiraHttp { [pscustomobject]@{ StatusCode = 201; Headers = @{}; Content = [pscustomobject]@{ id='10' } } }
+            $c = [pscustomobject]@{ baseUrl='https://x'; apiBase='/rest/api/3'; authHeader='Basic z'; bodyFormat='adf'; tlsValidate=$true }
+            Add-Ppdm2JiraComment -Client $c -Key 'OPS-1' -Text 'recurred' | Should -BeTrue
+        }
+    }
+    It 'returns $false on 404 so the caller can fall back to create' {
+        InModuleScope Ppdm2Jira {
+            Mock Invoke-Ppdm2JiraHttp { [pscustomobject]@{ StatusCode = 404; Headers = @{}; Content = $null } }
+            $c = [pscustomobject]@{ baseUrl='https://x'; apiBase='/rest/api/3'; authHeader='Basic z'; bodyFormat='adf'; tlsValidate=$true }
+            Add-Ppdm2JiraComment -Client $c -Key 'OPS-404' -Text 'x' | Should -BeFalse
+        }
+    }
+}

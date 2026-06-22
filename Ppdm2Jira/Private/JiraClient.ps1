@@ -128,3 +128,83 @@ function Invoke-Ppdm2JiraRequest {
         return $r
     }
 }
+
+function Find-Ppdm2JiraOpenIssue {
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)] $Client,
+        [Parameter(Mandatory)][string] $Project,
+        [Parameter(Mandatory)][string] $Label
+    )
+    $jql = 'project = "{0}" AND labels = "{1}" AND statusCategory != Done ORDER BY created DESC' -f $Project, $Label
+    if ($Client.apiBase -like '*api/3') {
+        $body = @{ jql = $jql; fields = @('key', 'status'); maxResults = 1 }
+        $res  = Invoke-Ppdm2JiraRequest -Client $Client -Method POST -Path '/search/jql' -Body $body
+    }
+    else {
+        $body = @{ jql = $jql; fields = @('key', 'status'); maxResults = 1; startAt = 0 }
+        $res  = Invoke-Ppdm2JiraRequest -Client $Client -Method POST -Path '/search' -Body $body
+    }
+    if ($res.StatusCode -in 401, 403) { throw "Jira auth/permission error ($($res.StatusCode)) searching for label '$Label'." }
+    if ($res.StatusCode -ge 400) { throw "Jira search failed ($($res.StatusCode))." }
+    $issues = $res.Content.issues
+    if ($issues -and @($issues).Count -gt 0) { return [string](@($issues)[0].key) }
+    return $null
+}
+
+function New-Ppdm2JiraIssue {
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)] $Client,
+        [Parameter(Mandatory)] $Target,
+        [Parameter(Mandatory)] $Incident
+    )
+    $fields = [ordered]@{
+        project     = @{ key = $Target.project }
+        issuetype   = @{ name = $Target.issueType }
+        summary     = $Incident.title
+        labels      = @($Target.labels)
+        description = (Get-Ppdm2JiraBody -Client $Client -Text $Incident.body)
+    }
+    if ($Target.priorityId) { $fields.priority   = @{ id = [string]$Target.priorityId } }
+    if ($Target.component)  { $fields.components = @(@{ name = $Target.component }) }
+
+    $res = Invoke-Ppdm2JiraRequest -Client $Client -Method POST -Path '/issue' -Body @{ fields = $fields }
+    if ($res.StatusCode -in 401, 403) { throw "Jira auth/permission error ($($res.StatusCode)) creating issue in $($Target.project)." }
+    if ($res.StatusCode -ge 400) {
+        $detail = if ($res.Content) { ($res.Content | ConvertTo-Json -Depth 5 -Compress) } else { '' }
+        throw "Jira create failed ($($res.StatusCode)): $detail"
+    }
+    return [string]$res.Content.key
+}
+
+function Add-Ppdm2JiraComment {
+    [OutputType([bool])]
+    param(
+        [Parameter(Mandatory)] $Client,
+        [Parameter(Mandatory)][string] $Key,
+        [Parameter(Mandatory)][string] $Text
+    )
+    $body = @{ body = (Get-Ppdm2JiraBody -Client $Client -Text $Text) }
+    $res  = Invoke-Ppdm2JiraRequest -Client $Client -Method POST -Path ('/issue/{0}/comment' -f $Key) -Body $body
+    if ($res.StatusCode -eq 404) { return $false }
+    if ($res.StatusCode -in 401, 403) { throw "Jira auth/permission error ($($res.StatusCode)) commenting on $Key." }
+    if ($res.StatusCode -ge 400) { throw "Jira comment failed ($($res.StatusCode)) on $Key." }
+    return $true
+}
+
+function Set-Ppdm2JiraRemoteLink {
+    [OutputType([bool])]
+    param(
+        [Parameter(Mandatory)] $Client,
+        [Parameter(Mandatory)][string] $Key,
+        [Parameter(Mandatory)][string] $GlobalId,
+        [string] $Url,
+        [string] $Title
+    )
+    $obj = @{ title = $Title }
+    if ($Url) { $obj.url = $Url }
+    $body = @{ globalId = $GlobalId; object = $obj }
+    $res = Invoke-Ppdm2JiraRequest -Client $Client -Method POST -Path ('/issue/{0}/remotelink' -f $Key) -Body $body
+    return ($res.StatusCode -lt 400)
+}
