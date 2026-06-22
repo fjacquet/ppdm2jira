@@ -135,3 +135,21 @@ Describe 'Add-Ppdm2JiraComment' {
         }
     }
 }
+
+Describe 'Set-Ppdm2JiraRemoteLink' {
+    It 'returns $true when the remote link is created (status < 400)' {
+        InModuleScope Ppdm2Jira {
+            Mock Invoke-Ppdm2JiraHttp { [pscustomobject]@{ StatusCode = 201; Headers = @{}; Content = [pscustomobject]@{ id = 1 } } }
+            $c = [pscustomobject]@{ baseUrl='https://x'; apiBase='/rest/api/3'; authHeader='Basic z'; tlsValidate=$true }
+            Set-Ppdm2JiraRemoteLink -Client $c -Key 'OPS-1' -GlobalId 'ppdm_prod1_a1' -Url 'https://prod1/x' -Title 'PPDM prod1 a1' | Should -BeTrue
+        }
+    }
+    It 'returns $false when the remote link call fails (status >= 400)' {
+        InModuleScope Ppdm2Jira {
+            Mock Invoke-Ppdm2JiraHttp { [pscustomobject]@{ StatusCode = 500; Headers = @{}; Content = $null } }
+            Mock Start-Sleep {}
+            $c = [pscustomobject]@{ baseUrl='https://x'; apiBase='/rest/api/3'; authHeader='Basic z'; tlsValidate=$true }
+            Set-Ppdm2JiraRemoteLink -Client $c -Key 'OPS-1' -GlobalId 'ppdm_prod1_a1' -Url 'https://prod1/x' -Title 'PPDM prod1 a1' | Should -BeFalse
+        }
+    }
+}

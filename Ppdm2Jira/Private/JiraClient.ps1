@@ -147,7 +147,7 @@ function Find-Ppdm2JiraOpenIssue {
     }
     if ($res.StatusCode -in 401, 403) { throw "Jira auth/permission error ($($res.StatusCode)) searching for label '$Label'." }
     if ($res.StatusCode -ge 400) { throw "Jira search failed ($($res.StatusCode))." }
-    $issues = $res.Content.issues
+    $issues = Get-Ppdm2JiraProp $res.Content 'issues'
     if ($issues -and @($issues).Count -gt 0) { return [string](@($issues)[0].key) }
     return $null
 }
@@ -175,7 +175,7 @@ function New-Ppdm2JiraIssue {
         $detail = if ($res.Content) { ($res.Content | ConvertTo-Json -Depth 5 -Compress) } else { '' }
         throw "Jira create failed ($($res.StatusCode)): $detail"
     }
-    return [string]$res.Content.key
+    return [string](Get-Ppdm2JiraProp $res.Content 'key')
 }
 
 function Add-Ppdm2JiraComment {
