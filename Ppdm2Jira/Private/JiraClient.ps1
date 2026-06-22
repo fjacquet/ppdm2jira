@@ -19,6 +19,9 @@ function Get-Ppdm2JiraSecret {
 }
 
 function New-Ppdm2JiraClient {
+    # PSUseShouldProcessForStateChangingFunctions: this is a pure factory function that
+    # constructs and returns a configuration object; it makes no system state changes.
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     [OutputType([pscustomobject])]
     param([Parameter(Mandatory)][hashtable] $Config)
 
@@ -153,6 +156,10 @@ function Find-Ppdm2JiraOpenIssue {
 }
 
 function New-Ppdm2JiraIssue {
+    # PSUseShouldProcessForStateChangingFunctions: issues a single POST to Jira as part of
+    # a deliberately write-oriented sync pipeline; ShouldProcess would require CmdletBinding
+    # on an internal helper that is fully controlled by the orchestrator's own -DryRun gate.
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     [OutputType([string])]
     param(
         [Parameter(Mandatory)] $Client,
@@ -194,6 +201,9 @@ function Add-Ppdm2JiraComment {
 }
 
 function Set-Ppdm2JiraRemoteLink {
+    # PSUseShouldProcessForStateChangingFunctions: internal helper called only by the
+    # orchestrator which owns the -DryRun gate; adding ShouldProcess here adds no safety.
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     [OutputType([bool])]
     param(
         [Parameter(Mandatory)] $Client,

@@ -17,6 +17,11 @@
 Set-StrictMode -Version Latest
 
 function Connect-Ppdm2JiraInstance {
+    # PSAvoidUsingConvertToSecureStringWithPlainText: the secret is retrieved from
+    # a managed secrets store (Get-Ppdm2JiraSecret), never hardcoded. ConvertTo-SecureString
+    # is required here only as an adapter to the PPDM-pwsh Connect-PPDMapiEndpoint API,
+    # which demands a SecureString token parameter.
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingConvertToSecureStringWithPlainText', '')]
     param([Parameter(Mandatory)] $Instance)
     if (-not (Get-Command Connect-PPDMapiEndpoint -ErrorAction SilentlyContinue)) {
         throw "PPDM-pwsh cmdlet 'Connect-PPDMapiEndpoint' not found. Install PPDM-pwsh first."

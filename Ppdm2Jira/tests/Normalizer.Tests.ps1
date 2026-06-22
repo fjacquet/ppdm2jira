@@ -1,4 +1,4 @@
-$script:ModuleRoot = Split-Path -Parent $PSScriptRoot
+﻿$script:ModuleRoot = Split-Path -Parent $PSScriptRoot
 Import-Module (Join-Path $script:ModuleRoot 'Ppdm2Jira.psd1') -Force
 
 InModuleScope Ppdm2Jira {

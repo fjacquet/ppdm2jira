@@ -2,8 +2,18 @@ BeforeAll {
     $script:ModuleRoot = Split-Path -Parent $PSScriptRoot
     Import-Module (Join-Path $script:ModuleRoot 'Ppdm2Jira.psd1') -Force
     # PPDM-pwsh is not installed in CI: provide stubs so the module's cmdlets resolve and are mockable.
-    function global:Get-PPDMactivities { param($filter, $pageSize) }
-    function global:Get-PPDMalerts     { param($filter, $body) }
+    # PSReviewUnusedParameter + PSUseSingularNouns: params match real cmdlet signatures for Pester
+    # Mock interception; plural nouns match the upstream PPDM-pwsh module naming convention.
+    function global:Get-PPDMactivities {
+        [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '')]
+        [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
+        param($filter, $pageSize)
+    }
+    function global:Get-PPDMalerts {
+        [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '')]
+        [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
+        param($filter, $body)
+    }
 }
 AfterAll {
     Remove-Item Function:\Get-PPDMactivities, Function:\Get-PPDMalerts -ErrorAction SilentlyContinue

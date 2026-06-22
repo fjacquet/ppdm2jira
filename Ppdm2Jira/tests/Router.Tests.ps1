@@ -12,7 +12,10 @@ InModuleScope Ppdm2Jira {
             default = @{ project = 'OPS'; issueType = 'Task'; component = $null
                          assigneeGroup = $null; labels = @(); priority = @{ CRITICAL = '2'; WARNING = '3' } }
         }
+        # PSUseShouldProcessForStateChangingFunctions: test-only factory helper; creates an
+        # in-memory object only, no system state changes occur.
         function New-Inc {
+            [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
             param($source, $severity, $category, $dedup)
             [pscustomobject]@{ PSTypeName = 'Ppdm2Jira.Incident'; source = $source; severity = $severity
                                category = $category; dedupKey = $dedup }

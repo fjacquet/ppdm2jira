@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Thin read wrappers over the PPDM-pwsh module that return normalized Incidents.
 
@@ -54,6 +54,8 @@ function Get-Ppdm2JiraFailedBackups {
     .EXAMPLE
         Get-Ppdm2JiraFailedBackups -InstanceId prod1 -Since (Get-Date).AddHours(-6)
     #>
+    # PSUseSingularNouns: plural is intentional — returns a collection of backup job records.
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     [CmdletBinding()]
     [OutputType([pscustomobject])]
     param(
@@ -96,6 +98,8 @@ function Get-Ppdm2JiraAlerts {
     .EXAMPLE
         Get-Ppdm2JiraAlerts -InstanceId prod1 -Category PROTECTION,PROTECTION_COPY -UnacknowledgedOnly
     #>
+    # PSUseSingularNouns: plural is intentional — returns a collection of alert records.
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
     [CmdletBinding()]
     [OutputType([pscustomobject])]
     param(

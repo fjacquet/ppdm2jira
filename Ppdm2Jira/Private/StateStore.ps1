@@ -38,6 +38,9 @@ function Get-Ppdm2JiraWatermark {
 }
 
 function Set-Ppdm2JiraWatermark {
+    # PSUseShouldProcessForStateChangingFunctions: writes an atomic watermark file as part
+    # of the sync pipeline; the orchestrator's own -DryRun switch is the confirmation gate.
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     param(
         [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string] $InstanceId,
         [Parameter(Mandatory)][datetime] $Time,

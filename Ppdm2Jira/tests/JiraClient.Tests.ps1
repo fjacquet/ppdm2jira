@@ -2,7 +2,12 @@ BeforeAll {
     $script:ModuleRoot = Split-Path -Parent $PSScriptRoot
     Import-Module (Join-Path $script:ModuleRoot 'Ppdm2Jira.psd1') -Force
     # SecretManagement not guaranteed in CI: stub Get-Secret so the wrapper resolves/mocks.
-    function global:Get-Secret { param([string]$Name, [switch]$AsPlainText) }
+    # PSReviewUnusedParameter: $Name and $AsPlainText are required to match the real cmdlet
+    # signature so Pester Mock can intercept calls; they are intentionally unused in the stub.
+    function global:Get-Secret {
+        [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '')]
+        param([string]$Name, [switch]$AsPlainText)
+    }
 }
 AfterAll {
     Remove-Item Function:\Get-Secret -ErrorAction SilentlyContinue

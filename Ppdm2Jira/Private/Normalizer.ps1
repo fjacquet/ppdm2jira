@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Normalizes raw PPDM alerts and activities into the common `Incident` model.
 
