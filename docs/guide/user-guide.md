@@ -16,6 +16,24 @@ and [ADRs](../adr/index.md).
 
 ## 2. Install
 
+### Option A — from a release (recommended)
+
+Each [GitHub release](https://github.com/fjacquet/ppdm2jira/releases) ships a `Ppdm2Jira-<version>.zip`
+(the module only — no tests) plus a `.sha256` checksum.
+
+```powershell
+# Download the asset from the latest release, then verify and unpack:
+Get-FileHash ./Ppdm2Jira-0.1.0.zip -Algorithm SHA256    # compare against the .sha256 file
+Expand-Archive ./Ppdm2Jira-0.1.0.zip -DestinationPath .
+Import-Module ./Ppdm2Jira/Ppdm2Jira.psd1
+Get-Command -Module Ppdm2Jira      # → Invoke-Ppdm2JiraSync
+```
+
+To make it importable by name from anywhere, copy the unpacked `Ppdm2Jira` folder into a path on
+`$env:PSModulePath` (e.g. `~/Documents/PowerShell/Modules/` on PowerShell 7), then `Import-Module Ppdm2Jira`.
+
+### Option B — from source (for development)
+
 ```powershell
 git clone https://github.com/fjacquet/ppdm2jira.git
 Import-Module ./ppdm2jira/Ppdm2Jira/Ppdm2Jira.psd1

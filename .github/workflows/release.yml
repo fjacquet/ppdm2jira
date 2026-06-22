@@ -1,0 +1,61 @@
+name: Release package
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to (re)build and attach the package for
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and validate module package
+        id: pkg
+        shell: pwsh
+        run: |
+          $version = (Import-PowerShellDataFile ./Ppdm2Jira/Ppdm2Jira.psd1).ModuleVersion
+          $stage = Join-Path $env:RUNNER_TEMP 'pkg/Ppdm2Jira'
+          New-Item -ItemType Directory -Path $stage -Force | Out-Null
+
+          # Module files only — drop tests and any macOS cruft; ship LICENSE + notices.
+          Copy-Item ./Ppdm2Jira/* -Destination $stage -Recurse -Force
+          Remove-Item (Join-Path $stage 'tests') -Recurse -Force -ErrorAction SilentlyContinue
+          Copy-Item ./LICENSE, ./THIRD_PARTY_NOTICES.md -Destination $stage
+          Get-ChildItem -Path $stage -Recurse -Force -Filter '.DS_Store' | Remove-Item -Force -ErrorAction SilentlyContinue
+
+          # Validate the staged module imports and exports the entry point.
+          Import-Module (Join-Path $stage 'Ppdm2Jira.psd1') -Force
+          if (-not (Get-Command Invoke-Ppdm2JiraSync -ErrorAction SilentlyContinue)) {
+            throw 'Package validation failed: Invoke-Ppdm2JiraSync not exported.'
+          }
+          Remove-Module Ppdm2Jira -Force
+
+          $zip = Join-Path $env:RUNNER_TEMP ("Ppdm2Jira-$version.zip")
+          Compress-Archive -Path $stage -DestinationPath $zip -Force
+          $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+          "$hash  Ppdm2Jira-$version.zip" | Set-Content "$zip.sha256"
+
+          "zip=$zip"          >> $env:GITHUB_OUTPUT
+          "sha=$zip.sha256"   >> $env:GITHUB_OUTPUT
+          "version=$version"  >> $env:GITHUB_OUTPUT
+          Write-Host "Built Ppdm2Jira-$version.zip ($hash)"
+
+      - name: Attach package to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name || github.event.inputs.tag }}
+          ZIP: ${{ steps.pkg.outputs.zip }}
+          SHA: ${{ steps.pkg.outputs.sha }}
+          VERSION: ${{ steps.pkg.outputs.version }}
+        run: |
+          gh release upload "$RELEASE_TAG" "$ZIP" "$SHA" --clobber
+          echo "Attached Ppdm2Jira-$VERSION.zip to $RELEASE_TAG"

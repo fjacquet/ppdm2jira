@@ -6,6 +6,11 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+- Release packaging: a `Release package` workflow builds, validates, and attaches
+  `Ppdm2Jira-<version>.zip` + `.sha256` to every published GitHub release. Documented "Install from a
+  release" in the User Guide.
+
 ## [0.1.1] - 2026-06-22
 
 ### Added
