@@ -1,4 +1,4 @@
-# Ppdm2Jira Quickstart — From Dummies to Black Belt
+# ppdm2Jira Quickstart — From Dummies to Black Belt
 
 A progressive, hands-on path. Each "belt" builds on the previous one. Stop whenever you have what you
 need — **White belt alone is enough to see it work**; Black belt is for people extending or operating
@@ -41,17 +41,17 @@ $PSVersionTable.PSVersion
 ```powershell
 git clone https://github.com/fjacquet/ppdm2jira.git
 cd ppdm2jira
-Import-Module ./Ppdm2Jira/Ppdm2Jira.psd1
-Get-Command -Module Ppdm2Jira          # → Invoke-Ppdm2JiraSync
+Import-Module ./ppdm2Jira/ppdm2Jira.psd1
+Get-Command -Module ppdm2Jira          # → Invoke-ppdm2JiraSync
 ```
 
-Only **one** command is public: `Invoke-Ppdm2JiraSync`. Everything else is internal.
+Only **one** command is public: `Invoke-ppdm2JiraSync`. Everything else is internal.
 
 ### 3. Make a throwaway config
 
 ```powershell
-Copy-Item ./Ppdm2Jira/config/settings.psd1.example ./settings.psd1
-Copy-Item ./Ppdm2Jira/config/routing.psd1.example  ./routing.psd1
+Copy-Item ./ppdm2Jira/config/settings.psd1.example ./settings.psd1
+Copy-Item ./ppdm2Jira/config/routing.psd1.example  ./routing.psd1
 ```
 
 ### 4. Dry run
@@ -61,7 +61,7 @@ not** touch any watermark. It will fail to reach the example PPDM host, and that
 confirming the module loads and the pipeline wires up.
 
 ```powershell
-Invoke-Ppdm2JiraSync -ConfigPath ./settings.psd1 -DryRun
+Invoke-ppdm2JiraSync -ConfigPath ./settings.psd1 -DryRun
 ```
 
 > 🥋 **You earned your white belt** when the module imports and `-DryRun` runs without a *syntax* or
@@ -106,7 +106,7 @@ The setup script reads `settings.psd1`, works out exactly which secrets are need
 each. Values are entered as `SecureString` — no plaintext ever lands on disk.
 
 ```powershell
-./scripts/Set-Ppdm2JiraSecrets.ps1 -ConfigPath ./settings.psd1 -RegisterVaultIfMissing
+./scripts/Set-ppdm2JiraSecrets.ps1 -ConfigPath ./settings.psd1 -RegisterVaultIfMissing
 ```
 
 You'll be prompted for the **PPDM token** (for `ppdm-prod1`) and the **Jira API token** (for
@@ -115,8 +115,8 @@ You'll be prompted for the **PPDM token** (for `ppdm-prod1`) and the **Jira API 
 ### 4. Dry run, then go live
 
 ```powershell
-Invoke-Ppdm2JiraSync -ConfigPath ./settings.psd1 -DryRun   # see the intended actions first
-Invoke-Ppdm2JiraSync -ConfigPath ./settings.psd1           # create/update real tickets
+Invoke-ppdm2JiraSync -ConfigPath ./settings.psd1 -DryRun   # see the intended actions first
+Invoke-ppdm2JiraSync -ConfigPath ./settings.psd1           # create/update real tickets
 ```
 
 Each incident prints one structured log line:
@@ -188,18 +188,18 @@ instances = @(
 )
 ```
 
-Run `./scripts/Set-Ppdm2JiraSecrets.ps1 -ConfigPath ./settings.psd1` again — it detects the new
+Run `./scripts/Set-ppdm2JiraSecrets.ps1 -ConfigPath ./settings.psd1` again — it detects the new
 `ppdm-dr1` secret and prompts only for that. Each instance is processed in isolation: one failing does
 not stop the others.
 
-Target a single instance when testing: `Invoke-Ppdm2JiraSync -ConfigPath ./settings.psd1 -Instance prod1`.
+Target a single instance when testing: `Invoke-ppdm2JiraSync -ConfigPath ./settings.psd1 -Instance prod1`.
 
 ### Schedule it
 
 **Linux/macOS (cron, every 5 min):**
 
 ```cron
-*/5 * * * * pwsh -NoProfile -Command "Import-Module /opt/ppdm2jira/Ppdm2Jira/Ppdm2Jira.psd1; exit (Invoke-Ppdm2JiraSync -ConfigPath /opt/ppdm2jira/settings.psd1)" >> /var/log/ppdm2jira.log 2>&1
+*/5 * * * * pwsh -NoProfile -Command "Import-Module /opt/ppdm2jira/ppdm2Jira/ppdm2Jira.psd1; exit (Invoke-ppdm2JiraSync -ConfigPath /opt/ppdm2jira/settings.psd1)" >> /var/log/ppdm2jira.log 2>&1
 ```
 
 **Windows (Task Scheduler):** see [User Guide §6](user-guide.md#6-schedule).
@@ -239,7 +239,7 @@ dedup prevents duplicate tickets. Net effect: **no event is ever lost or duplica
 - Use a **dedicated Jira service account** (Create Issues + Add Comments) and a **read-only PPDM** account.
 - TLS validation is on by default. Only disable per-instance for a lab with self-signed certs — it
   logs a warning every request when off.
-- Rotate secrets any time: `./scripts/Set-Ppdm2JiraSecrets.ps1 -ConfigPath ./settings.psd1 -Force`.
+- Rotate secrets any time: `./scripts/Set-ppdm2JiraSecrets.ps1 -ConfigPath ./settings.psd1 -Force`.
 
 ### Observability
 
@@ -307,8 +307,8 @@ default 3 → at most 4 calls), with exponential backoff capped at 30s and `Retr
 Everything external (Jira HTTP, PPDM-pwsh, SecretManagement) is mocked — no live systems needed.
 
 ```powershell
-Invoke-Pester ./Ppdm2Jira/tests
-Invoke-ScriptAnalyzer -Path ./Ppdm2Jira -Recurse -Severity Warning,Error
+Invoke-Pester ./ppdm2Jira/tests
+Invoke-ScriptAnalyzer -Path ./ppdm2Jira -Recurse -Severity Warning,Error
 ```
 
 CI runs both on Ubuntu (pwsh 7) and Windows (Windows PowerShell 5.1 + pwsh 7). Tip: also run the
@@ -317,11 +317,11 @@ suite with `$ErrorActionPreference = 'Stop'` locally — CI does, and some bugs 
 ### The testing pattern (how to add tests)
 
 Private functions are reached with `InModuleScope`, and HTTP is mocked at the single boundary
-`Invoke-Ppdm2JiraHttp`:
+`Invoke-ppdm2JiraHttp`:
 
 ```powershell
-InModuleScope Ppdm2Jira {
-    Mock Invoke-Ppdm2JiraHttp { [pscustomobject]@{ StatusCode = 201; Headers = @{}; Content = [pscustomobject]@{ key = 'OPS-9' } } }
+InModuleScope ppdm2Jira {
+    Mock Invoke-ppdm2JiraHttp { [pscustomobject]@{ StatusCode = 201; Headers = @{}; Content = [pscustomobject]@{ key = 'OPS-9' } } }
     # ...call the function under test, assert on the result or on `Should -Invoke`
 }
 ```
@@ -335,10 +335,10 @@ InModuleScope Ppdm2Jira {
 | Routing logic / new match keys | `Private/Router.ps1` + `routing.psd1` |
 | Jira payloads / a new operation | `Private/JiraClient.ps1` |
 | Create-vs-comment policy | `Private/Dedup.ps1` |
-| Orchestration / logging | `Public/Invoke-Ppdm2JiraSync.ps1` |
+| Orchestration / logging | `Public/Invoke-ppdm2JiraSync.ps1` |
 
 Keep `Set-StrictMode -Version Latest`, target PowerShell 5.1 syntax, read optional fields via
-`Get-Ppdm2JiraProp`, and keep all network I/O behind `Invoke-Ppdm2JiraHttp`.
+`Get-ppdm2JiraProp`, and keep all network I/O behind `Invoke-ppdm2JiraHttp`.
 
 ### Before a production deployment — confirm the M0 items
 
@@ -346,7 +346,7 @@ These are not yet validated against a live appliance (see PRD §14 and the desig
 
 1. **PPDM auth shape.** The current build passes a single token to `Connect-PPDMapiEndpoint -Token`.
    If your PPDM/PPDM-pwsh needs **username + password**, add a `username` field to each instance in
-   `settings.psd1`, store the **password** as the secret, and adjust `Connect-Ppdm2JiraInstance` to
+   `settings.psd1`, store the **password** as the secret, and adjust `Connect-ppdm2JiraInstance` to
    pass a `PSCredential` (see [User Guide §3 caveat](user-guide.md)).
 2. **PPDM filter operator syntax** (`eq`/`in`/`gt`) and timestamp format against your PPDM version.
 3. **Jira flavour** (Cloud v3/ADF vs Data Center v2/wiki) and `/search/jql` pagination shape.

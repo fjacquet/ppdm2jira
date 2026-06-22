@@ -3,10 +3,10 @@
     Thin read wrappers over the PPDM-pwsh module that return normalized Incidents.
 
 .DESCRIPTION
-    `Get-Ppdm2JiraFailedBackups` and `Get-Ppdm2JiraAlerts` build a PPDM filter
+    `Get-ppdm2JiraFailedBackups` and `Get-ppdm2JiraAlerts` build a PPDM filter
     string (watermark + status/severity), call the PPDM-pwsh transport cmdlets
     (Get-PPDMactivities / Get-PPDMalerts), and pipe each raw result through
-    ConvertTo-Ppdm2JiraIncident (Normalizer.ps1).
+    ConvertTo-ppdm2JiraIncident (Normalizer.ps1).
 
     Transport/auth (token, pagination plumbing) is delegated to PPDM-pwsh, which
     must already be connected via Connect-PPDMapiEndpoint (sets $Global:PPDM_API_BaseUri).
@@ -24,20 +24,20 @@
 
 Set-StrictMode -Version Latest
 
-function Format-Ppdm2JiraTimestamp {
+function Format-ppdm2JiraTimestamp {
     # PPDM filter expects ISO-8601 Zulu, 24-hour.
     param([Parameter(Mandatory)][datetime] $Value)
     return $Value.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
 }
 
-function Assert-Ppdm2JiraPpdmCommand {
+function Assert-ppdm2JiraPpdmCommand {
     param([Parameter(Mandatory)][string] $Name)
     if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
         throw "PPDM-pwsh cmdlet '$Name' not found. Install (Install-Module PPDM-pwsh) and connect (Connect-PPDMapiEndpoint) first."
     }
 }
 
-function Get-Ppdm2JiraFailedBackups {
+function Get-ppdm2JiraFailedBackups {
     <#
     .SYNOPSIS
         Returns failed/partial backup jobs since the watermark as Incidents.
@@ -52,7 +52,7 @@ function Get-Ppdm2JiraFailedBackups {
     .PARAMETER PageSize
         Page size passed to Get-PPDMactivities.
     .EXAMPLE
-        Get-Ppdm2JiraFailedBackups -InstanceId prod1 -Since (Get-Date).AddHours(-6)
+        Get-ppdm2JiraFailedBackups -InstanceId prod1 -Since (Get-Date).AddHours(-6)
     #>
     # PSUseSingularNouns: plural is intentional — returns a collection of backup job records.
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
@@ -66,9 +66,9 @@ function Get-Ppdm2JiraFailedBackups {
         [int]       $PageSize     = 200,
         [string]    $PpdmBaseUrl  = (Get-Variable -Name 'PPDM_API_BaseUri' -Scope Global -ValueOnly -ErrorAction SilentlyContinue)
     )
-    Assert-Ppdm2JiraPpdmCommand -Name 'Get-PPDMactivities'
+    Assert-ppdm2JiraPpdmCommand -Name 'Get-PPDMactivities'
 
-    $sinceIso   = Format-Ppdm2JiraTimestamp $Since
+    $sinceIso   = Format-ppdm2JiraTimestamp $Since
     $statusList = ($Status   | ForEach-Object { '"{0}"' -f $_ }) -join ','
     $catList    = ($Category | ForEach-Object { '"{0}"' -f $_ }) -join ','
 
@@ -78,10 +78,10 @@ function Get-Ppdm2JiraFailedBackups {
     Write-Verbose "PPDM activities filter: $filter"
 
     Get-PPDMactivities -filter $filter -pageSize $PageSize |
-        ConvertTo-Ppdm2JiraIncident -Source activity -InstanceId $InstanceId -PpdmBaseUrl $PpdmBaseUrl
+        ConvertTo-ppdm2JiraIncident -Source activity -InstanceId $InstanceId -PpdmBaseUrl $PpdmBaseUrl
 }
 
-function Get-Ppdm2JiraAlerts {
+function Get-ppdm2JiraAlerts {
     <#
     .SYNOPSIS
         Returns CRITICAL/WARNING alerts since the watermark as Incidents.
@@ -96,7 +96,7 @@ function Get-Ppdm2JiraAlerts {
     .PARAMETER UnacknowledgedOnly
         Exclude already-acknowledged alerts (acknowledgeState eq UNACKNOWLEDGED).
     .EXAMPLE
-        Get-Ppdm2JiraAlerts -InstanceId prod1 -Category PROTECTION,PROTECTION_COPY -UnacknowledgedOnly
+        Get-ppdm2JiraAlerts -InstanceId prod1 -Category PROTECTION,PROTECTION_COPY -UnacknowledgedOnly
     #>
     # PSUseSingularNouns: plural is intentional — returns a collection of alert records.
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '')]
@@ -111,9 +111,9 @@ function Get-Ppdm2JiraAlerts {
         [int]       $PageSize            = 200,
         [string]    $PpdmBaseUrl         = (Get-Variable -Name 'PPDM_API_BaseUri' -Scope Global -ValueOnly -ErrorAction SilentlyContinue)
     )
-    Assert-Ppdm2JiraPpdmCommand -Name 'Get-PPDMalerts'
+    Assert-ppdm2JiraPpdmCommand -Name 'Get-PPDMalerts'
 
-    $sinceIso = Format-Ppdm2JiraTimestamp $Since
+    $sinceIso = Format-ppdm2JiraTimestamp $Since
     $sevList  = ($Severity | ForEach-Object { '"{0}"' -f $_ }) -join ','
 
     $filter = 'severity in ({0}) and postedTime gt "{1}"' -f $sevList, $sinceIso
@@ -127,5 +127,5 @@ function Get-Ppdm2JiraAlerts {
     Write-Verbose "PPDM alerts filter: $filter"
 
     Get-PPDMalerts -filter $filter -body @{ pageSize = $PageSize } |
-        ConvertTo-Ppdm2JiraIncident -Source alert -InstanceId $InstanceId -PpdmBaseUrl $PpdmBaseUrl
+        ConvertTo-ppdm2JiraIncident -Source alert -InstanceId $InstanceId -PpdmBaseUrl $PpdmBaseUrl
 }

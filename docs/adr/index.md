@@ -1,6 +1,6 @@
 # Architecture Decision Records
 
-The load-bearing decisions behind Ppdm2Jira. Each ADR captures the context, the decision, and its
+The load-bearing decisions behind ppdm2Jira. Each ADR captures the context, the decision, and its
 consequences. Cite the relevant ADR when changing its area; contradicting one is an ADR change, not a
 casual edit.
 

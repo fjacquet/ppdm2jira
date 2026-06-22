@@ -1,4 +1,4 @@
-site_name: Ppdm2Jira
+site_name: ppdm2Jira
 site_description: Poll Dell PowerProtect Data Manager for alerts and failed backups and open/update Jira issues.
 site_url: https://fjacquet.github.io/ppdm2jira/
 repo_url: https://github.com/fjacquet/ppdm2jira

@@ -1,4 +1,4 @@
-# Ppdm2Jira
+# ppdm2Jira
 
 [![CI](https://github.com/fjacquet/ppdm2jira/actions/workflows/ci.yml/badge.svg)](https://github.com/fjacquet/ppdm2jira/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -40,7 +40,7 @@ systems.
 | `JiraClient` | Auth-abstracted find / create / comment / remote-link (Cloud + Data Center) |
 | `Dedup` | Jira-as-source-of-truth create-vs-comment decision |
 | `StateStore` | Durable, atomic per-instance watermark |
-| `Invoke-Ppdm2JiraSync` | Orchestrate per instance — the only exported function |
+| `Invoke-ppdm2JiraSync` | Orchestrate per instance — the only exported function |
 
 ## Requirements
 
@@ -55,21 +55,27 @@ systems.
 ```powershell
 # 1. Get the module — either clone the repo...
 git clone https://github.com/fjacquet/ppdm2jira.git
-Import-Module ./ppdm2jira/Ppdm2Jira/Ppdm2Jira.psd1
-#    ...or download Ppdm2Jira-<version>.zip from a Release, verify the .sha256, and Expand-Archive it
+Import-Module ./ppdm2jira/ppdm2Jira/ppdm2Jira.psd1
+#    ...or download ppdm2Jira-<version>.zip from a Release, verify the .sha256, and Expand-Archive it
 #    (see the User Guide → Install).
 
 # 2. Create config from the templates
-Copy-Item ./ppdm2jira/Ppdm2Jira/config/settings.psd1.example ./settings.psd1
-Copy-Item ./ppdm2jira/Ppdm2Jira/config/routing.psd1.example  ./routing.psd1
+Copy-Item ./ppdm2jira/ppdm2Jira/config/settings.psd1.example ./settings.psd1
+Copy-Item ./ppdm2jira/ppdm2Jira/config/routing.psd1.example  ./routing.psd1
 #   ...edit baseUrl, instance ids, jira flavour, routing rules...
 
 # 3. Register the secrets named in settings.psd1 (prompts securely; no plaintext on disk)
-./ppdm2jira/scripts/Set-Ppdm2JiraSecrets.ps1 -ConfigPath ./settings.psd1 -RegisterVaultIfMissing
+./ppdm2jira/scripts/Set-ppdm2JiraSecrets.ps1 -ConfigPath ./settings.psd1 -RegisterVaultIfMissing
 
 # 4. Dry run (no Jira writes), then run for real
-Invoke-Ppdm2JiraSync -ConfigPath ./settings.psd1 -DryRun
-Invoke-Ppdm2JiraSync -ConfigPath ./settings.psd1
+Invoke-ppdm2JiraSync -ConfigPath ./settings.psd1 -DryRun
+Invoke-ppdm2JiraSync -ConfigPath ./settings.psd1
+```
+
+Or skip the manual import and use the launcher from the repo root:
+
+```powershell
+./Start-ppdm2Jira.ps1 -ConfigPath ./settings.psd1 -DryRun     # imports the module + runs one sync
 ```
 
 Full setup (secret vault, config fields, scheduling, troubleshooting) is in the
@@ -81,13 +87,13 @@ Credentials are **never** stored in config or on disk — config holds only `sec
 that name entries in your SecretManagement vault ([ADR-0006](docs/adr/ADR-0006-secret-management-and-tls.md)).
 `settings.psd1` defines instances, the Jira client flavour, and paths; `routing.psd1` is a
 customer-editable mapping with a mandatory default rule so nothing is ever dropped. Start from
-`Ppdm2Jira/config/*.psd1.example`.
+`ppdm2Jira/config/*.psd1.example`.
 
 ## Testing
 
 ```powershell
-Invoke-Pester ./Ppdm2Jira/tests                 # full suite (HTTP/PPDM/secrets all mocked)
-Invoke-ScriptAnalyzer -Path ./Ppdm2Jira -Recurse
+Invoke-Pester ./ppdm2Jira/tests                 # full suite (HTTP/PPDM/secrets all mocked)
+Invoke-ScriptAnalyzer -Path ./ppdm2Jira -Recurse
 ```
 
 CI runs the suite + PSScriptAnalyzer on Ubuntu (pwsh 7) and Windows (Windows PowerShell 5.1 and pwsh 7).

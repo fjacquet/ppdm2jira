@@ -22,6 +22,6 @@ SOFTWARE.
 
 ---
 
-Portions of `Ppdm2Jira/Private/PpdmClient.ps1` adapt filter-expression knowledge
+Portions of `ppdm2Jira/Private/PpdmClient.ps1` adapt filter-expression knowledge
 from the MIT-licensed PPDM-pwsh module (Copyright (c) 2023 Karsten Bott). See
 THIRD_PARTY_NOTICES.md for details.

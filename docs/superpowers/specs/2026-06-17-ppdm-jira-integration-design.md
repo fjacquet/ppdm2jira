@@ -38,10 +38,10 @@ This is the master design document. It links the customer-facing **PRD** and the
 Modular PowerShell module — single-responsibility units, each independently Pester-testable:
 
 ```
-Ppdm2Jira/
-├─ Ppdm2Jira.psd1            # module manifest
+ppdm2Jira/
+├─ ppdm2Jira.psd1            # module manifest
 ├─ Public/
-│  └─ Invoke-Ppdm2JiraSync.ps1   # orchestrator / entry point
+│  └─ Invoke-ppdm2JiraSync.ps1   # orchestrator / entry point
 ├─ Private/
 │  ├─ PpdmClient.ps1         # login + GET alerts/activities (paged, retry/backoff)
 │  ├─ JiraClient.ps1         # auth-abstracted create/search/comment (Cloud or DC)
@@ -65,7 +65,7 @@ Ppdm2Jira/
 | `Router` | Resolve routing target | `(Incident, routingTable)` → `JiraTarget` | `routing.psd1` |
 | `Dedup` | Decide create vs comment | `(Incident)` → `Action{Create\|Comment}` | `JiraClient`, `StateStore` |
 | `StateStore` | Durable watermark | `Read(instance)→time`, `Write(instance,time)` | filesystem |
-| `Invoke-Ppdm2JiraSync` | Orchestrate per instance | `(settings)` → exit code + logs | all of the above |
+| `Invoke-ppdm2JiraSync` | Orchestrate per instance | `(settings)` → exit code + logs | all of the above |
 
 ### The `Incident` model (common shape)
 

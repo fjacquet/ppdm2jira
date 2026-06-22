@@ -16,9 +16,9 @@
 #>
 Set-StrictMode -Version Latest
 
-function Connect-Ppdm2JiraInstance {
+function Connect-ppdm2JiraInstance {
     # PSAvoidUsingConvertToSecureStringWithPlainText: the secret is retrieved from
-    # a managed secrets store (Get-Ppdm2JiraSecret), never hardcoded. ConvertTo-SecureString
+    # a managed secrets store (Get-ppdm2JiraSecret), never hardcoded. ConvertTo-SecureString
     # is required here only as an adapter to the PPDM-pwsh Connect-PPDMapiEndpoint API,
     # which demands a SecureString token parameter.
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingConvertToSecureStringWithPlainText', '')]
@@ -26,12 +26,12 @@ function Connect-Ppdm2JiraInstance {
     if (-not (Get-Command Connect-PPDMapiEndpoint -ErrorAction SilentlyContinue)) {
         throw "PPDM-pwsh cmdlet 'Connect-PPDMapiEndpoint' not found. Install PPDM-pwsh first."
     }
-    $secret = Get-Ppdm2JiraSecret -Name $Instance.secretName
+    $secret = Get-ppdm2JiraSecret -Name $Instance.secretName
     $secure = ConvertTo-SecureString $secret -AsPlainText -Force
     Connect-PPDMapiEndpoint -PPDM_API_URI $Instance.baseUrl -Token $secure | Out-Null
 }
 
-function Write-Ppdm2JiraLog {
+function Write-ppdm2JiraLog {
     param(
         [Parameter(Mandatory)][string] $Instance,
         [Parameter(Mandatory)] $Incident,
@@ -49,7 +49,7 @@ function Write-Ppdm2JiraLog {
     return $line
 }
 
-function Invoke-Ppdm2JiraSync {
+function Invoke-ppdm2JiraSync {
     [CmdletBinding()]
     [OutputType([int])]
     param(
@@ -60,52 +60,52 @@ function Invoke-Ppdm2JiraSync {
 
     $settings = Import-PowerShellDataFile -Path $ConfigPath
     $routing  = Import-PowerShellDataFile -Path $settings.routingPath
-    $client   = New-Ppdm2JiraClient -Config $settings.jira
+    $client   = New-ppdm2JiraClient -Config $settings.jira
     $anyFailed = $false
 
     foreach ($inst in $settings.instances) {
         if ($Instance -and ($inst.id -notin $Instance)) { continue }
         try {
-            Connect-Ppdm2JiraInstance -Instance $inst
-            $wm = Get-Ppdm2JiraWatermark -InstanceId $inst.id -StateDir $settings.stateDir
+            Connect-ppdm2JiraInstance -Instance $inst
+            $wm = Get-ppdm2JiraWatermark -InstanceId $inst.id -StateDir $settings.stateDir
 
             $incidents = New-Object System.Collections.Generic.List[object]
-            foreach ($i in (Get-Ppdm2JiraAlerts -InstanceId $inst.id -Since $wm))        { $incidents.Add($i) }
-            foreach ($i in (Get-Ppdm2JiraFailedBackups -InstanceId $inst.id -Since $wm)) { $incidents.Add($i) }
+            foreach ($i in (Get-ppdm2JiraAlerts -InstanceId $inst.id -Since $wm))        { $incidents.Add($i) }
+            foreach ($i in (Get-ppdm2JiraFailedBackups -InstanceId $inst.id -Since $wm)) { $incidents.Add($i) }
 
             $maxOccurred = $wm
             foreach ($inc in $incidents) {
-                $target = Resolve-Ppdm2JiraTarget -Incident $inc -RoutingTable $routing
-                $action = Resolve-Ppdm2JiraAction -Client $client -Incident $inc -Target $target
+                $target = Resolve-ppdm2JiraTarget -Incident $inc -RoutingTable $routing
+                $action = Resolve-ppdm2JiraAction -Client $client -Incident $inc -Target $target
 
                 if ($DryRun) {
-                    Write-Ppdm2JiraLog -Instance $inst.id -Incident $inc -Action ('dryrun:' + $action.Action) -Key $action.Key | Out-Null
+                    Write-ppdm2JiraLog -Instance $inst.id -Incident $inc -Action ('dryrun:' + $action.Action) -Key $action.Key | Out-Null
                 }
                 elseif ($action.Action -eq 'Create') {
-                    $key = New-Ppdm2JiraIssue -Client $client -Target $target -Incident $inc
-                    $gid = ConvertTo-Ppdm2JiraLabel $inc.dedupKey
-                    $url = Get-Ppdm2JiraProp $inc.ppdmLinks 'deepLink'
-                    Set-Ppdm2JiraRemoteLink -Client $client -Key $key -GlobalId $gid -Url $url -Title ('PPDM {0} {1}' -f $inst.id, (Get-Ppdm2JiraProp $inc.ppdmLinks 'id')) | Out-Null
-                    Write-Ppdm2JiraLog -Instance $inst.id -Incident $inc -Action 'created' -Key $key | Out-Null
+                    $key = New-ppdm2JiraIssue -Client $client -Target $target -Incident $inc
+                    $gid = ConvertTo-ppdm2JiraLabel $inc.dedupKey
+                    $url = Get-ppdm2JiraProp $inc.ppdmLinks 'deepLink'
+                    Set-ppdm2JiraRemoteLink -Client $client -Key $key -GlobalId $gid -Url $url -Title ('PPDM {0} {1}' -f $inst.id, (Get-ppdm2JiraProp $inc.ppdmLinks 'id')) | Out-Null
+                    Write-ppdm2JiraLog -Instance $inst.id -Incident $inc -Action 'created' -Key $key | Out-Null
                 }
                 else {
                     $ts = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
-                    $commented = Add-Ppdm2JiraComment -Client $client -Key $action.Key -Text ("Recurred at $ts")
+                    $commented = Add-ppdm2JiraComment -Client $client -Key $action.Key -Text ("Recurred at $ts")
                     if (-not $commented) {
-                        $key = New-Ppdm2JiraIssue -Client $client -Target $target -Incident $inc
-                        Write-Ppdm2JiraLog -Instance $inst.id -Incident $inc -Action 'created(404-fallback)' -Key $key | Out-Null
+                        $key = New-ppdm2JiraIssue -Client $client -Target $target -Incident $inc
+                        Write-ppdm2JiraLog -Instance $inst.id -Incident $inc -Action 'created(404-fallback)' -Key $key | Out-Null
                     }
                     else {
-                        Write-Ppdm2JiraLog -Instance $inst.id -Incident $inc -Action 'commented' -Key $action.Key | Out-Null
+                        Write-ppdm2JiraLog -Instance $inst.id -Incident $inc -Action 'commented' -Key $action.Key | Out-Null
                     }
                 }
 
-                $occurred = Get-Ppdm2JiraProp $inc 'occurredAt'
+                $occurred = Get-ppdm2JiraProp $inc 'occurredAt'
                 if ($occurred -and $occurred -gt $maxOccurred) { $maxOccurred = $occurred }
             }
 
             if (-not $DryRun) {
-                Set-Ppdm2JiraWatermark -InstanceId $inst.id -Time $maxOccurred -StateDir $settings.stateDir
+                Set-ppdm2JiraWatermark -InstanceId $inst.id -Time $maxOccurred -StateDir $settings.stateDir
             }
         }
         catch {

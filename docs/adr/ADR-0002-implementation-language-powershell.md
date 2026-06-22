@@ -22,7 +22,7 @@ The integration must poll 2–5 PPDM instances, transform events, and create Jir
 
 ## Decision
 
-Implement v1 as a **modular PowerShell module** (`Ppdm2Jira`) with single-responsibility units and Pester tests — not a monolithic `.ps1`.
+Implement v1 as a **modular PowerShell module** (`ppdm2Jira`) with single-responsibility units and Pester tests — not a monolithic `.ps1`.
 
 Rationale: at 2–5 instances with one-way, scheduled polling, PowerShell is low-friction, needs no extra runtime infrastructure, and produces the **most customer-reviewable artifact** for the approval gate. The hard logic (dedup, routing) stays in readable, testable code rather than being hidden in a low-code canvas.
 

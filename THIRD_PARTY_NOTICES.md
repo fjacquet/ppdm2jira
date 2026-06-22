@@ -8,7 +8,7 @@ This project adapts small portions of the following work.
 - Copyright (c) 2023 Karsten Bott
 - License: MIT
 
-`Ppdm2Jira/Private/PpdmClient.ps1` adapts the PPDM activity **filter expressions**
+`ppdm2Jira/Private/PpdmClient.ps1` adapts the PPDM activity **filter expressions**
 (notably the `PROTECT_FAILED` predefined filter — the `parentId ne null` +
 `classType in ("JOB","JOB_GROUP")` job-level scoping) from the PPDM-pwsh module.
 No source files are vendored; only the filter syntax/knowledge is reused.

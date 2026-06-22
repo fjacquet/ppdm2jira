@@ -1,4 +1,4 @@
-# Ppdm2Jira — User Guide
+# ppdm2Jira — User Guide
 
 How to install, configure, run, and schedule the integration. For the *why*, see the
 [PRD](../prd/PRD-ppdm-jira-integration.md), [design spec](../superpowers/specs/2026-06-17-ppdm-jira-integration-design.md),
@@ -18,26 +18,26 @@ and [ADRs](../adr/index.md).
 
 ### Option A — from a release (recommended)
 
-Each [GitHub release](https://github.com/fjacquet/ppdm2jira/releases) ships a `Ppdm2Jira-<version>.zip`
+Each [GitHub release](https://github.com/fjacquet/ppdm2jira/releases) ships a `ppdm2Jira-<version>.zip`
 (the module only — no tests) plus a `.sha256` checksum.
 
 ```powershell
 # Download the asset from the latest release, then verify and unpack:
-Get-FileHash ./Ppdm2Jira-0.1.0.zip -Algorithm SHA256    # compare against the .sha256 file
-Expand-Archive ./Ppdm2Jira-0.1.0.zip -DestinationPath .
-Import-Module ./Ppdm2Jira/Ppdm2Jira.psd1
-Get-Command -Module Ppdm2Jira      # → Invoke-Ppdm2JiraSync
+Get-FileHash ./ppdm2Jira-0.1.0.zip -Algorithm SHA256    # compare against the .sha256 file
+Expand-Archive ./ppdm2Jira-0.1.0.zip -DestinationPath .
+Import-Module ./ppdm2Jira/ppdm2Jira.psd1
+Get-Command -Module ppdm2Jira      # → Invoke-ppdm2JiraSync
 ```
 
-To make it importable by name from anywhere, copy the unpacked `Ppdm2Jira` folder into a path on
-`$env:PSModulePath` (e.g. `~/Documents/PowerShell/Modules/` on PowerShell 7), then `Import-Module Ppdm2Jira`.
+To make it importable by name from anywhere, copy the unpacked `ppdm2Jira` folder into a path on
+`$env:PSModulePath` (e.g. `~/Documents/PowerShell/Modules/` on PowerShell 7), then `Import-Module ppdm2Jira`.
 
 ### Option B — from source (for development)
 
 ```powershell
 git clone https://github.com/fjacquet/ppdm2jira.git
-Import-Module ./ppdm2jira/Ppdm2Jira/Ppdm2Jira.psd1
-Get-Command -Module Ppdm2Jira      # → Invoke-Ppdm2JiraSync
+Import-Module ./ppdm2jira/ppdm2Jira/ppdm2Jira.psd1
+Get-Command -Module ppdm2Jira      # → Invoke-ppdm2JiraSync
 ```
 
 ## 3. Store credentials (SecretManagement — no `.env`, no plaintext)
@@ -50,7 +50,7 @@ One-time vault setup:
 
 ```powershell
 Install-Module Microsoft.PowerShell.SecretManagement, Microsoft.PowerShell.SecretStore -Scope CurrentUser
-Register-SecretVault -Name Ppdm2Jira -ModuleName Microsoft.PowerShell.SecretStore -DefaultVault
+Register-SecretVault -Name ppdm2Jira -ModuleName Microsoft.PowerShell.SecretStore -DefaultVault
 
 # One secret per PPDM instance:
 Set-Secret -Name ppdm-prod1 -Secret '<ppdm-credential — see table below>'
@@ -72,13 +72,13 @@ and prompts securely for each. Values are read as `SecureString` and never mater
 
 ```powershell
 # First-time setup: register a default vault and prompt for each missing secret
-./scripts/Set-Ppdm2JiraSecrets.ps1 -ConfigPath ./config/settings.psd1 -RegisterVaultIfMissing
+./scripts/Set-ppdm2JiraSecrets.ps1 -ConfigPath ./config/settings.psd1 -RegisterVaultIfMissing
 
 # Preview what it would do, without prompting or writing
-./scripts/Set-Ppdm2JiraSecrets.ps1 -ConfigPath ./config/settings.psd1 -WhatIf
+./scripts/Set-ppdm2JiraSecrets.ps1 -ConfigPath ./config/settings.psd1 -WhatIf
 
 # Rotate / overwrite existing secrets
-./scripts/Set-Ppdm2JiraSecrets.ps1 -ConfigPath ./config/settings.psd1 -Force
+./scripts/Set-ppdm2JiraSecrets.ps1 -ConfigPath ./config/settings.psd1 -Force
 ```
 
 It is idempotent: existing secrets are skipped unless you pass `-Force`.
@@ -99,7 +99,7 @@ The Jira secret pairs with the `jira.email` field for Cloud Basic auth; Data Cen
 > `Connect-PPDMapiEndpoint` signature in your PPDM-pwsh version must be confirmed (an M0 spike item;
 > see the [PRD §14 / design spec open items](../prd/PRD-ppdm-jira-integration.md)). If your PPDM
 > requires username + password, add a `username` field to each instance in `settings.psd1`, store
-> the **password** as the secret, and adjust `Connect-Ppdm2JiraInstance` to pass a `PSCredential`
+> the **password** as the secret, and adjust `Connect-ppdm2JiraInstance` to pass a `PSCredential`
 > instead of `-Token`. This is the one credential detail not yet validated against a live appliance.
 
 ## 4. Configure
@@ -108,8 +108,8 @@ Copy the templates and edit them. Both are PowerShell data files loaded with
 `Import-PowerShellDataFile`. They are git-ignored once named `settings.psd1` / `routing.psd1`.
 
 ```powershell
-Copy-Item ./ppdm2jira/Ppdm2Jira/config/settings.psd1.example ./config/settings.psd1
-Copy-Item ./ppdm2jira/Ppdm2Jira/config/routing.psd1.example  ./config/routing.psd1
+Copy-Item ./ppdm2jira/ppdm2Jira/config/settings.psd1.example ./config/settings.psd1
+Copy-Item ./ppdm2jira/ppdm2Jira/config/routing.psd1.example  ./config/routing.psd1
 ```
 
 ### settings.psd1
@@ -167,13 +167,21 @@ to a **mandatory `default`** so no event is ever dropped. Each target sets `proj
 
 ```powershell
 # Dry run: reads, routes, and dedup-searches, but performs NO Jira writes and does NOT advance the watermark.
-Invoke-Ppdm2JiraSync -ConfigPath ./config/settings.psd1 -DryRun
+Invoke-ppdm2JiraSync -ConfigPath ./config/settings.psd1 -DryRun
 
 # Real run across all configured instances:
-Invoke-Ppdm2JiraSync -ConfigPath ./config/settings.psd1
+Invoke-ppdm2JiraSync -ConfigPath ./config/settings.psd1
 
 # Limit to specific instances:
-Invoke-Ppdm2JiraSync -ConfigPath ./config/settings.psd1 -Instance prod1
+Invoke-ppdm2JiraSync -ConfigPath ./config/settings.psd1 -Instance prod1
+```
+
+Or use the repo-root launcher, which imports the module for you and forwards the same parameters
+(handy for schedulers — it returns the sync exit code):
+
+```powershell
+./Start-ppdm2Jira.ps1 -ConfigPath ./config/settings.psd1 -DryRun
+./Start-ppdm2Jira.ps1 -ConfigPath ./config/settings.psd1 -Instance prod1
 ```
 
 | Parameter | Purpose |
@@ -197,15 +205,15 @@ The module is designed for unattended, scheduled runs.
 **Windows — Task Scheduler:**
 
 ```powershell
-$action  = New-ScheduledTaskAction -Execute 'pwsh.exe' -Argument '-NoProfile -Command "Import-Module C:\ppdm2jira\Ppdm2Jira\Ppdm2Jira.psd1; exit (Invoke-Ppdm2JiraSync -ConfigPath C:\ppdm2jira\config\settings.psd1)"'
+$action  = New-ScheduledTaskAction -Execute 'pwsh.exe' -Argument '-NoProfile -Command "Import-Module C:\ppdm2jira\ppdm2Jira\ppdm2Jira.psd1; exit (Invoke-ppdm2JiraSync -ConfigPath C:\ppdm2jira\config\settings.psd1)"'
 $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 5)
-Register-ScheduledTask -TaskName 'Ppdm2JiraSync' -Action $action -Trigger $trigger -RunLevel Limited
+Register-ScheduledTask -TaskName 'ppdm2JiraSync' -Action $action -Trigger $trigger -RunLevel Limited
 ```
 
 **Linux/macOS — cron** (every 5 minutes):
 
 ```cron
-*/5 * * * * pwsh -NoProfile -Command "Import-Module /opt/ppdm2jira/Ppdm2Jira/Ppdm2Jira.psd1; exit (Invoke-Ppdm2JiraSync -ConfigPath /opt/ppdm2jira/config/settings.psd1)" >> /var/log/ppdm2jira.log 2>&1
+*/5 * * * * pwsh -NoProfile -Command "Import-Module /opt/ppdm2jira/ppdm2Jira/ppdm2Jira.psd1; exit (Invoke-ppdm2JiraSync -ConfigPath /opt/ppdm2jira/config/settings.psd1)" >> /var/log/ppdm2jira.log 2>&1
 ```
 
 Ensure the scheduled context can unlock the secret vault non-interactively (see §3).
@@ -224,6 +232,6 @@ Ensure the scheduled context can unlock the secret vault non-interactively (see 
 ## 8. Verify your changes
 
 ```powershell
-Invoke-Pester ./Ppdm2Jira/tests
-Invoke-ScriptAnalyzer -Path ./Ppdm2Jira -Recurse -Severity Warning,Error
+Invoke-Pester ./ppdm2Jira/tests
+Invoke-ScriptAnalyzer -Path ./ppdm2Jira -Recurse -Severity Warning,Error
 ```

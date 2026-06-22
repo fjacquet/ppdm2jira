@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 A one-way integration that polls **Dell PowerProtect Data Manager (PPDM)** for critical/warning
 alerts and failed backup jobs and opens/updates **Jira** issues for them. The repo is
 **design-first**: the authoritative documents in `docs/` are the contract, and the PowerShell
-module under `Ppdm2Jira/` is being built to match them. When code and docs disagree, the docs win
+module under `ppdm2Jira/` is being built to match them. When code and docs disagree, the docs win
 unless the change is intentionally updating the design — keep both in sync.
 
 Scope is deliberately narrow (v1): one-way PPDM→Jira, 2–5 PPDM instances, scheduled (not real-time),
@@ -35,8 +35,8 @@ Single-responsibility PowerShell units, each independently Pester-testable, wire
 orchestrator. Per the design spec the intended layout is:
 
 ```
-Ppdm2Jira/
-├─ Public/Invoke-Ppdm2JiraSync.ps1   # orchestrator / entry point (per-instance loop)
+ppdm2Jira/
+├─ Public/Invoke-ppdm2JiraSync.ps1   # orchestrator / entry point (per-instance loop)
 ├─ Private/PpdmClient.ps1   # read side: build PPDM filter, page reads → Incidents   [exists]
 ├─ Private/Normalizer.ps1   # pure transform: raw alert|activity → Incident model     [exists]
 ├─ Private/JiraClient.ps1   # write side: auth-abstracted find/create/comment/remotelink
@@ -51,10 +51,10 @@ target → **Dedup**/**JiraClient** searches for an open issue with the dedup la
 (recurrence) or creates → **StateStore** advances the watermark **only after the whole instance
 succeeds** (safe replay; never advance on partial failure).
 
-The **`Incident`** model (`PSTypeName 'Ppdm2Jira.Incident'`) is the seam between read and write
+The **`Incident`** model (`PSTypeName 'ppdm2Jira.Incident'`) is the seam between read and write
 sides — both alerts and activities collapse into it so the Jira side never sees PPDM-shaped data.
 Its fields are defined in the design spec §"The Incident model" and emitted by
-`ConvertTo-Ppdm2JiraIncident` in `Normalizer.ps1`.
+`ConvertTo-ppdm2JiraIncident` in `Normalizer.ps1`.
 
 ### Conventions that are load-bearing (not stylistic)
 
@@ -63,16 +63,16 @@ Its fields are defined in the design spec §"The Incident model" and emitted by
   which sets `$Global:PPDM_API_BaseUri`). Tests therefore mock those cmdlets, not HTTP.
 - **`Normalizer` is pure (no I/O)** so it stays trivially testable — keep it that way.
 - **StrictMode-safe property reads**: PPDM omits optional fields by event state. Read optional fields
-  through `Get-Ppdm2JiraProp` so `Set-StrictMode -Version Latest` doesn't throw on missing properties.
+  through `Get-ppdm2JiraProp` so `Set-StrictMode -Version Latest` doesn't throw on missing properties.
 - **Windows PowerShell 5.1+ target** in the normalizer — no PS7-only operators (e.g. no `??`, `?.`).
 - **`dedupKey` is `ppdm:<instanceId>:<eventId>`** raw, but Jira **labels can't contain spaces/colons**,
   so `JiraClient` sanitises it to `ppdm_<instanceId>_<eventId>`. The label is the JQL-searchable dedup
   key *and* the remote-link `globalId` (idempotent back-link). Keep those three in lockstep.
 - **Jira v3 `description`/comment bodies are ADF (JSON), not strings.** `summary` ≤ 255 chars
-  (`Limit-Ppdm2JiraText`). The `JiraClient` config `{baseUrl, apiVersion, authMode, bodyFormat}`
+  (`Limit-ppdm2JiraText`). The `JiraClient` config `{baseUrl, apiVersion, authMode, bodyFormat}`
   abstracts Cloud (v3/Basic/ADF) vs Data Center (v2/Bearer/wiki) — don't hardcode one flavour.
 - **Timestamps**: ISO-8601 Zulu, **24-hour `HH`** (the upstream filter used 12-hour `hh` — a bug we
-  deliberately don't reproduce; see `Format-Ppdm2JiraTimestamp`).
+  deliberately don't reproduce; see `Format-ppdm2JiraTimestamp`).
 - Filter knowledge adapted from `PPDM-pwsh` (MIT) — see `THIRD_PARTY_NOTICES.md`. The non-obvious
   job-level scoping is `parentId ne null` + `classType in ("JOB","JOB_GROUP")`.
 
@@ -85,7 +85,7 @@ mirrors in `docs/docx/` (treat the Markdown as source, the `.docx` as build outp
   — run a single file/test with `Invoke-Pester ./tests/Normalizer.Tests.ps1` or
   `Invoke-Pester ./tests -FullNameFilter '*dedup key*'`. No live PPDM/Jira is needed: mock the
   `PPDM-pwsh` cmdlets and Jira HTTP calls.
-- **Lint**: `Invoke-ScriptAnalyzer -Path ./Ppdm2Jira -Recurse`.
+- **Lint**: `Invoke-ScriptAnalyzer -Path ./ppdm2Jira -Recurse`.
 - **Security scan before delivering generated code**: run Semgrep (the global instruction requires
   scanning generated code/commands via the `semgrep` MCP tools).
 - Never commit secrets, watermarks, or logs — `.gitignore` already excludes `config/settings.psd1`,

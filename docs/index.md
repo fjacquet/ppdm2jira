@@ -1,4 +1,4 @@
-# Ppdm2Jira
+# ppdm2Jira
 
 A one-way integration that polls **Dell PowerProtect Data Manager (PPDM)** for critical/warning
 alerts and failed backup jobs and opens or updates **Jira** issues for them — routed to the right
@@ -34,7 +34,7 @@ network I/O funnels through a single mockable boundary, so the test suite needs 
 | `JiraClient` | Auth-abstracted find / create / comment / remote-link (Cloud + Data Center) |
 | `Dedup` | Jira-as-source-of-truth create-vs-comment decision |
 | `StateStore` | Durable, atomic per-instance watermark |
-| `Invoke-Ppdm2JiraSync` | Orchestrate per instance — the only exported function |
+| `Invoke-ppdm2JiraSync` | Orchestrate per instance — the only exported function |
 
 ## Documentation map
 

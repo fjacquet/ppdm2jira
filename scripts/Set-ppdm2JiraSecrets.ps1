@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Registers or updates the SecretManagement secrets that Ppdm2Jira needs, derived from settings.psd1.
+    Registers or updates the SecretManagement secrets that ppdm2Jira needs, derived from settings.psd1.
 
 .DESCRIPTION
     Reads the secret NAMES referenced by a settings.psd1 (each PPDM instance's `secretName` plus the
@@ -13,11 +13,11 @@
     This is an operational helper, NOT part of the importable module.
 
 .PARAMETER ConfigPath
-    Path to your settings.psd1 (same file you pass to Invoke-Ppdm2JiraSync).
+    Path to your settings.psd1 (same file you pass to Invoke-ppdm2JiraSync).
 
 .PARAMETER VaultName
     Target vault. Defaults to the registered default vault. Used as the vault name when
-    -RegisterVaultIfMissing creates one (default 'Ppdm2Jira').
+    -RegisterVaultIfMissing creates one (default 'ppdm2Jira').
 
 .PARAMETER Force
     Overwrite secrets that already exist (otherwise they are skipped).
@@ -26,15 +26,15 @@
     If no vault is registered, register a Microsoft.PowerShell.SecretStore vault as the default.
 
 .EXAMPLE
-    ./scripts/Set-Ppdm2JiraSecrets.ps1 -ConfigPath ./config/settings.psd1 -RegisterVaultIfMissing
+    ./scripts/Set-ppdm2JiraSecrets.ps1 -ConfigPath ./config/settings.psd1 -RegisterVaultIfMissing
     First-time setup: registers a vault and prompts for each missing secret.
 
 .EXAMPLE
-    ./scripts/Set-Ppdm2JiraSecrets.ps1 -ConfigPath ./config/settings.psd1 -Force
+    ./scripts/Set-ppdm2JiraSecrets.ps1 -ConfigPath ./config/settings.psd1 -Force
     Rotate/update: re-prompt and overwrite every secret.
 
 .EXAMPLE
-    ./scripts/Set-Ppdm2JiraSecrets.ps1 -ConfigPath ./config/settings.psd1 -WhatIf
+    ./scripts/Set-ppdm2JiraSecrets.ps1 -ConfigPath ./config/settings.psd1 -WhatIf
     Show which secrets would be created/updated without prompting or writing.
 #>
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '', Justification = 'Interactive operator setup script; coloured console status is the intended UX, not pipeline output.')]
@@ -65,7 +65,7 @@ if ($vaults.Count -eq 0) {
     if (-not (Get-Module -ListAvailable Microsoft.PowerShell.SecretStore)) {
         throw "Microsoft.PowerShell.SecretStore is not installed. Run: Install-Module Microsoft.PowerShell.SecretStore -Scope CurrentUser"
     }
-    $targetVault = if ($VaultName) { $VaultName } else { 'Ppdm2Jira' }
+    $targetVault = if ($VaultName) { $VaultName } else { 'ppdm2Jira' }
     if ($PSCmdlet.ShouldProcess($targetVault, 'Register SecretStore vault as default')) {
         Register-SecretVault -Name $targetVault -ModuleName Microsoft.PowerShell.SecretStore -DefaultVault
         Write-Host "Registered default vault '$targetVault'." -ForegroundColor Green

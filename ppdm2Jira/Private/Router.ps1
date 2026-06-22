@@ -8,18 +8,18 @@
 #>
 Set-StrictMode -Version Latest
 
-function ConvertTo-Ppdm2JiraLabel {
+function ConvertTo-ppdm2JiraLabel {
     [OutputType([string])]
     param([Parameter(Mandatory)][ValidateNotNullOrEmpty()][string] $DedupKey)
     return ($DedupKey -replace '[:\s]', '_')
 }
 
-function Test-Ppdm2JiraRoutingRule {
+function Test-ppdm2JiraRoutingRule {
     param([Parameter(Mandatory)] $Rule, [Parameter(Mandatory)] $Incident)
     if (-not $Rule.ContainsKey('match') -or $null -eq $Rule.match) { return $false }
     foreach ($key in $Rule.match.Keys) {
         $want = $Rule.match[$key]
-        $have = Get-Ppdm2JiraProp $Incident $key
+        $have = Get-ppdm2JiraProp $Incident $key
         if ($want -is [array]) {
             if ($have -notin $want) { return $false }
         }
@@ -30,7 +30,7 @@ function Test-Ppdm2JiraRoutingRule {
     return $true
 }
 
-function Resolve-Ppdm2JiraTarget {
+function Resolve-ppdm2JiraTarget {
     [OutputType([pscustomobject])]
     param(
         [Parameter(Mandatory)] $Incident,
@@ -39,7 +39,7 @@ function Resolve-Ppdm2JiraTarget {
     $match = $null
     if ($RoutingTable.ContainsKey('rules') -and $RoutingTable.rules) {
         foreach ($rule in $RoutingTable.rules) {
-            if (Test-Ppdm2JiraRoutingRule -Rule $rule -Incident $Incident) { $match = $rule; break }
+            if (Test-ppdm2JiraRoutingRule -Rule $rule -Incident $Incident) { $match = $rule; break }
         }
     }
     if ($null -eq $match) {
@@ -51,9 +51,9 @@ function Resolve-Ppdm2JiraTarget {
 
     $labels = New-Object System.Collections.Generic.List[string]
     $labels.Add('ppdm')
-    $labels.Add((ConvertTo-Ppdm2JiraLabel $Incident.dedupKey))
+    $labels.Add((ConvertTo-ppdm2JiraLabel $Incident.dedupKey))
     $labels.Add(('source_{0}' -f $Incident.source))
-    $category = Get-Ppdm2JiraProp $Incident 'category'
+    $category = Get-ppdm2JiraProp $Incident 'category'
     if ($category) { $labels.Add(('cat_{0}' -f ($category.ToString().ToLower() -replace '[:\s]', '_'))) }
     if ($match.ContainsKey('labels') -and $match.labels) { foreach ($l in $match.labels) { $labels.Add([string]$l) } }
 
