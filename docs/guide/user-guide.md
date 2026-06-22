@@ -2,7 +2,7 @@
 
 How to install, configure, run, and schedule the integration. For the *why*, see the
 [PRD](../prd/PRD-ppdm-jira-integration.md), [design spec](../superpowers/specs/2026-06-17-ppdm-jira-integration-design.md),
-and [ADRs](../adr/).
+and [ADRs](../adr/index.md).
 
 ## 1. Prerequisites
 

@@ -5,7 +5,7 @@ need — **White belt alone is enough to see it work**; Black belt is for people
 it in production.
 
 > Reference docs (look things up rather than learn step-by-step): the
-> [User Guide](user-guide.md), [Jira contract](../design/jira-integration-contract.md), and [ADRs](../adr/).
+> [User Guide](user-guide.md), [Jira contract](../design/jira-integration-contract.md), and [ADRs](../adr/index.md).
 
 ---
 
@@ -347,7 +347,7 @@ These are not yet validated against a live appliance (see PRD §14 and the desig
 1. **PPDM auth shape.** The current build passes a single token to `Connect-PPDMapiEndpoint -Token`.
    If your PPDM/PPDM-pwsh needs **username + password**, add a `username` field to each instance in
    `settings.psd1`, store the **password** as the secret, and adjust `Connect-Ppdm2JiraInstance` to
-   pass a `PSCredential` (see [User Guide §3 caveat](user-guide.md#3-store-credentials-secretmanagement--no-env-no-plaintext)).
+   pass a `PSCredential` (see [User Guide §3 caveat](user-guide.md)).
 2. **PPDM filter operator syntax** (`eq`/`in`/`gt`) and timestamp format against your PPDM version.
 3. **Jira flavour** (Cloud v3/ADF vs Data Center v2/wiki) and `/search/jql` pagination shape.
 
@@ -366,5 +366,5 @@ These are not yet validated against a live appliance (see PRD §14 and the desig
 
 - [User Guide](user-guide.md) — full reference for config, scheduling, troubleshooting
 - [Jira integration contract](../design/jira-integration-contract.md) — exact endpoints, ADF, dedup, field mapping
-- [ADRs](../adr/) — the decisions behind the design
-- [CHANGELOG](../../CHANGELOG.md)
+- [ADRs](../adr/index.md) — the decisions behind the design
+- [CHANGELOG](https://github.com/fjacquet/ppdm2jira/blob/main/CHANGELOG.md)
