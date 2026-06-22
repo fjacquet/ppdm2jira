@@ -28,12 +28,12 @@ InModuleScope Ppdm2Jira {
     Describe 'ConvertTo-Ppdm2JiraIncident — robustness' {
         It 'does not throw on a missing result/error under StrictMode' {
             $raw = [pscustomobject]@{ id = 'act-1'; result = [pscustomobject]@{ status = 'FAILED' } }
-            { $raw | ConvertTo-Ppdm2JiraIncident -Source activity -InstanceId prod1 -PpdmBaseUrl '' } | Should -Not -Throw
+            { $raw | ConvertTo-Ppdm2JiraIncident -Source activity -InstanceId prod1 } | Should -Not -Throw
         }
         It 'truncates a long title to 255 chars' {
             $long = 'x' * 400
             $raw  = [pscustomobject]@{ id = 'a'; severity = 'WARNING'; category = 'C'; message = $long }
-            $inc  = $raw | ConvertTo-Ppdm2JiraIncident -Source alert -InstanceId prod1 -PpdmBaseUrl ''
+            $inc  = $raw | ConvertTo-Ppdm2JiraIncident -Source alert -InstanceId prod1
             $inc.title.Length | Should -BeLessOrEqual 255
         }
     }
