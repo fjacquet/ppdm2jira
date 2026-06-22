@@ -1,0 +1,16 @@
+@{
+    stateDir    = './state'
+    routingPath = './config/routing.psd1'
+    instances   = @(
+        @{ id = 'prod1'; baseUrl = 'https://prod1.ppdm.example/api/v2'; secretName = 'ppdm-prod1' }
+    )
+    jira = @{
+        baseUrl     = 'https://your-org.atlassian.net'
+        apiVersion  = 3            # 3 = Cloud (ADF), 2 = Data Center (wiki)
+        authMode    = 'basic'      # 'basic' = Cloud (email:token), 'bearer' = DC (PAT)
+        bodyFormat  = 'adf'        # 'adf' = Cloud, 'wiki' = DC
+        email       = 'svc-ppdm2jira@your-org.example'   # used only for basic auth
+        secretName  = 'jira-api-token'
+        tlsValidate = $true
+    }
+}
