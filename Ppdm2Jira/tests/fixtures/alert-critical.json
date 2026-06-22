@@ -1,0 +1,11 @@
+{
+  "id": "alert-a1b2",
+  "severity": "CRITICAL",
+  "category": "PROTECTION",
+  "subcategory": "POLICY",
+  "message": "Backup window exceeded",
+  "detailedDescription": "Policy Gold-Daily exceeded its window",
+  "postedTime": "2026-06-20T02:00:00Z",
+  "resource": { "name": "fileserver01", "id": "res-9", "type": "ASSET", "url": "https://prod1.ppdm.example/#/x" },
+  "jobId": "job-77"
+}
