@@ -6,6 +6,13 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-06-22
+
+### Added
+- `docs/guide/quickstart.md` — progressive "dummies to black belt" tutorial (dry run → real tickets →
+  routing/dedup → scheduling → operations → Data Center/internals → extending & testing). Linked from
+  the README docs index.
+
 ## [0.1.0] - 2026-06-22
 
 Initial implementation of the `Ppdm2Jira` PowerShell module.
@@ -36,5 +43,6 @@ Initial implementation of the `Ppdm2Jira` PowerShell module.
 - v1 is one-way (PPDM → Jira), scheduled, for 2–5 instances. No alert↔activity correlation, no
   write-back. See the ADRs for rationale.
 
-[Unreleased]: https://github.com/fjacquet/ppdm2jira/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/fjacquet/ppdm2jira/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/fjacquet/ppdm2jira/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/fjacquet/ppdm2jira/releases/tag/v0.1.0
