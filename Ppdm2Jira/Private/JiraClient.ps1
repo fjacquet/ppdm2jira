@@ -86,13 +86,28 @@ function Invoke-Ppdm2JiraHttp {
         $content = if ($resp.Content) { $resp.Content | ConvertFrom-Json } else { $null }
         return [pscustomobject]@{ StatusCode = [int]$resp.StatusCode; Headers = $resp.Headers; Content = $content }
     }
-    catch [System.Net.WebException] {
-        $r = $_.Exception.Response
-        if ($null -ne $r) {
-            $reader = New-Object System.IO.StreamReader($r.GetResponseStream())
-            $raw = $reader.ReadToEnd()
+    catch {
+        $ex   = $_.Exception
+        $resp = Get-Ppdm2JiraProp $ex 'Response'
+        if ($null -ne $resp) {
+            if ($resp -is [System.Net.HttpWebResponse]) {
+                # Windows PowerShell 5.1 path: WebException -> HttpWebResponse
+                $reader  = New-Object System.IO.StreamReader($resp.GetResponseStream())
+                $raw     = $reader.ReadToEnd()
+                $code    = [int]$resp.StatusCode
+                $headers = $resp.Headers
+            }
+            else {
+                # PowerShell 7+ path: HttpResponseException -> HttpResponseMessage
+                $code    = [int]$resp.StatusCode
+                $hdrs    = @{}
+                foreach ($h in $resp.Headers) { $hdrs[$h.Key] = ($h.Value -join ',') }
+                $headers = $hdrs
+                $ed  = Get-Ppdm2JiraProp $_ 'ErrorDetails'
+                $raw = if ($null -ne $ed) { Get-Ppdm2JiraProp $ed 'Message' } else { $null }
+            }
             $content = if ($raw) { try { $raw | ConvertFrom-Json } catch { $raw } } else { $null }
-            return [pscustomobject]@{ StatusCode = [int]$r.StatusCode; Headers = $r.Headers; Content = $content }
+            return [pscustomobject]@{ StatusCode = $code; Headers = $headers; Content = $content }
         }
         throw
     }
@@ -115,6 +130,7 @@ function Invoke-Ppdm2JiraRequest {
     $json = if ($PSBoundParameters.ContainsKey('Body') -and $null -ne $Body) { $Body | ConvertTo-Json -Depth 20 } else { $null }
 
     $attempt = 0
+    # Retries are bounded: 1 initial attempt + up to $MaxRetries retries (default 3 => at most 4 calls).
     while ($true) {
         $attempt++
         $r = Invoke-Ppdm2JiraHttp -Uri $uri -Method $Method -Headers $headers -JsonBody $json -SkipTls:(-not $Client.tlsValidate)

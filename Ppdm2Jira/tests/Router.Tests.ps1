@@ -41,6 +41,8 @@ InModuleScope Ppdm2Jira {
             $t = Resolve-Ppdm2JiraTarget -Incident (New-Inc 'alert' 'WARNING' 'OTHER' 'ppdm:prod1:al-9') -RoutingTable $script:routing
             $t.project    | Should -Be 'OPS'
             $t.priorityId | Should -Be '3'
+            $t.labels | Should -Contain 'source_alert'
+            $t.labels | Should -Contain 'cat_other'
         }
     }
 }

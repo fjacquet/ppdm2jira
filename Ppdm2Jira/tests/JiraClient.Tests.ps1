@@ -141,6 +141,18 @@ Describe 'Add-Ppdm2JiraComment' {
     }
 }
 
+Describe 'Invoke-Ppdm2JiraHttp error mapping (PS7)' {
+    It 'maps an HttpResponseException to a StatusCode result instead of throwing' {
+        InModuleScope Ppdm2Jira {
+            $msg = [System.Net.Http.HttpResponseMessage]::new([System.Net.HttpStatusCode]::NotFound)
+            $ex  = [Microsoft.PowerShell.Commands.HttpResponseException]::new('404 Not Found', $msg)
+            Mock Invoke-WebRequest { throw $ex } -ModuleName Ppdm2Jira
+            $r = Invoke-Ppdm2JiraHttp -Uri 'https://x/rest/api/3/issue/OPS-1/comment' -Method POST -Headers @{ Authorization = 'Basic z' } -JsonBody '{}'
+            $r.StatusCode | Should -Be 404
+        }
+    }
+}
+
 Describe 'Set-Ppdm2JiraRemoteLink' {
     It 'returns $true when the remote link is created (status < 400)' {
         InModuleScope Ppdm2Jira {

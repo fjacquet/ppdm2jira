@@ -43,7 +43,7 @@ function Write-Ppdm2JiraLog {
         source   = $Incident.source
         dedupKey = $Incident.dedupKey
         action   = $Action
-        jiraKey  = $Key
+        jiraKey  = if ([string]::IsNullOrEmpty($Key)) { $null } else { $Key }
     } | ConvertTo-Json -Compress
     Write-Information $line -InformationAction Continue
     return $line
