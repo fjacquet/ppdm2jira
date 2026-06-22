@@ -9,7 +9,7 @@
 | Scope | The 5 unbuilt units + manifest + config + tests, wired into an end-to-end run |
 
 This spec turns the master design into a concrete, plannable build for the parts of the
-`Ppdm2Jira` module that do not yet exist. The architecture, the `Incident` model, and the
+`ppdm2Jira` module that do not yet exist. The architecture, the `Incident` model, and the
 per-instance data flow are defined in the parent spec and are not restated here except where this
 document makes them concrete.
 
@@ -25,14 +25,14 @@ document makes them concrete.
 ## Already built (unchanged)
 
 - `Private/Normalizer.ps1` — raw alert|activity → `Incident` (pure transform).
-- `Private/PpdmClient.ps1` — `Get-Ppdm2JiraAlerts` / `Get-Ppdm2JiraFailedBackups` read wrappers over PPDM-pwsh.
+- `Private/PpdmClient.ps1` — `Get-ppdm2JiraAlerts` / `Get-ppdm2JiraFailedBackups` read wrappers over PPDM-pwsh.
 
 ## 1. Module assembly & manifest
 
-- `Ppdm2Jira.psd1` — manifest: `RootModule = 'Ppdm2Jira.psm1'`, `PowerShellVersion = '5.1'`,
-  `RequiredModules = @('PPDM-pwsh', 'Microsoft.PowerShell.SecretManagement')`, `FunctionsToExport = @('Invoke-Ppdm2JiraSync')`.
-- `Ppdm2Jira.psm1` — loader: dot-source `Private/*.ps1` then `Public/*.ps1`; `Export-ModuleMember -Function Invoke-Ppdm2JiraSync`.
-- Private functions remain unexported but are reachable in tests via `InModuleScope Ppdm2Jira`.
+- `ppdm2Jira.psd1` — manifest: `RootModule = 'ppdm2Jira.psm1'`, `PowerShellVersion = '5.1'`,
+  `RequiredModules = @('PPDM-pwsh', 'Microsoft.PowerShell.SecretManagement')`, `FunctionsToExport = @('Invoke-ppdm2JiraSync')`.
+- `ppdm2Jira.psm1` — loader: dot-source `Private/*.ps1` then `Public/*.ps1`; `Export-ModuleMember -Function Invoke-ppdm2JiraSync`.
+- Private functions remain unexported but are reachable in tests via `InModuleScope ppdm2Jira`.
 
 ## 2. `Private/JiraClient.ps1` — Cloud + Data Center
 
@@ -46,13 +46,13 @@ Functions:
 
 | Function | Behaviour |
 |---|---|
-| `New-Ppdm2JiraClient($config)` | Builds the immutable client + auth header. Basic (`email:token`, base64) for Cloud; Bearer PAT for DC. Secret fetched from SecretManagement at build time; raw secret not retained on the returned object. |
-| `Find-Ppdm2JiraOpenIssue($client,$project,$label)` → key\|$null | Cloud: `POST /rest/api/3/search/jql` (token-paged via `nextPageToken`). DC: `POST /rest/api/2/search` (`startAt`). JQL: `project = <p> AND labels = "<label>" AND statusCategory != Done ORDER BY created DESC`, `maxResults: 1`. |
-| `New-Ppdm2JiraIssue($client,$target,$incident)` → key | `POST .../issue`. `fields` assembled from `JiraTarget` + `Incident`. `description` via `bodyFormat` switch. Returns `key` from `201`. |
-| `Add-Ppdm2JiraComment($client,$key,$text)` | `POST .../issue/{key}/comment`. Body via `bodyFormat` switch. |
-| `Set-Ppdm2JiraRemoteLink($client,$key,$globalId,$url,$title)` | `POST .../issue/{key}/remotelink`. `globalId` = sanitised dedup label → idempotent (create-or-update). |
-| `Invoke-Ppdm2JiraRequest` (private) | Single HTTP chokepoint. Injects auth header, enforces TLS (per-instance opt-out is explicit + logged), retries `429`/`5xx` with exponential backoff honouring `Retry-After`, maps `400/401/403/404` per contract §8. **All HTTP mocking in tests targets this function.** |
-| `ConvertTo-Ppdm2JiraAdf($text)` (private) | Wraps the Normalizer's newline-joined `body` into ADF: `{type:doc, version:1, content:[paragraph per line]}`. DC path emits the lines as a plain/wiki string instead. |
+| `New-ppdm2JiraClient($config)` | Builds the immutable client + auth header. Basic (`email:token`, base64) for Cloud; Bearer PAT for DC. Secret fetched from SecretManagement at build time; raw secret not retained on the returned object. |
+| `Find-ppdm2JiraOpenIssue($client,$project,$label)` → key\|$null | Cloud: `POST /rest/api/3/search/jql` (token-paged via `nextPageToken`). DC: `POST /rest/api/2/search` (`startAt`). JQL: `project = <p> AND labels = "<label>" AND statusCategory != Done ORDER BY created DESC`, `maxResults: 1`. |
+| `New-ppdm2JiraIssue($client,$target,$incident)` → key | `POST .../issue`. `fields` assembled from `JiraTarget` + `Incident`. `description` via `bodyFormat` switch. Returns `key` from `201`. |
+| `Add-ppdm2JiraComment($client,$key,$text)` | `POST .../issue/{key}/comment`. Body via `bodyFormat` switch. |
+| `Set-ppdm2JiraRemoteLink($client,$key,$globalId,$url,$title)` | `POST .../issue/{key}/remotelink`. `globalId` = sanitised dedup label → idempotent (create-or-update). |
+| `Invoke-ppdm2JiraRequest` (private) | Single HTTP chokepoint. Injects auth header, enforces TLS (per-instance opt-out is explicit + logged), retries `429`/`5xx` with exponential backoff honouring `Retry-After`, maps `400/401/403/404` per contract §8. **All HTTP mocking in tests targets this function.** |
+| `ConvertTo-ppdm2JiraAdf($text)` (private) | Wraps the Normalizer's newline-joined `body` into ADF: `{type:doc, version:1, content:[paragraph per line]}`. DC path emits the lines as a plain/wiki string instead. |
 
 The Normalizer stays Jira-agnostic — it emits one newline-joined `body`; ADF/wiki rendering lives only here.
 
@@ -63,22 +63,22 @@ The Normalizer stays Jira-agnostic — it emits one newline-joined `body`; ADF/w
 - `config/settings.psd1` — `instances[]` (`{ id, baseUrl, secretName }`), severity threshold, poll window,
   `jira` client config (§2 shape), `stateDir`, `dryRun` default. Git-ignored; committed templates are
   `config/settings.psd1.example` and `config/routing.psd1.example`.
-- `Resolve-Ppdm2JiraTarget($incident,$routingTable)` → `JiraTarget` — first matching rule wins, else default.
+- `Resolve-ppdm2JiraTarget($incident,$routingTable)` → `JiraTarget` — first matching rule wins, else default.
   Appends contract auto-labels (`ppdm`, sanitised dedup label, `source_<src>`, `cat_<category>`); maps
   `severity → priorityId` from the config map.
-- `ConvertTo-Ppdm2JiraLabel($dedupKey)` → `ppdm_<inst>_<id>` — strips spaces/colons (contract §4). Shared by Router, Dedup, and remote-link `globalId`.
+- `ConvertTo-ppdm2JiraLabel($dedupKey)` → `ppdm_<inst>_<id>` — strips spaces/colons (contract §4). Shared by Router, Dedup, and remote-link `globalId`.
 
 ## 4. `Private/StateStore.ps1` + `Private/Dedup.ps1`
 
 - **StateStore** — one JSON file per instance under `stateDir`.
-  `Get-Ppdm2JiraWatermark($instanceId)` → `[datetime]` (epoch-start sentinel if absent);
-  `Set-Ppdm2JiraWatermark($instanceId,$time)` writes **atomically** (temp file + move) so a crash
+  `Get-ppdm2JiraWatermark($instanceId)` → `[datetime]` (epoch-start sentinel if absent);
+  `Set-ppdm2JiraWatermark($instanceId,$time)` writes **atomically** (temp file + move) so a crash
   mid-write cannot corrupt the watermark (NFR-2).
-- **Dedup** — `Resolve-Ppdm2JiraAction($client,$incident,$target)` → `{ Action='Create'|'Comment'; Key }`.
-  Calls `Find-Ppdm2JiraOpenIssue`; Jira is the source of truth (ADR-0003). On a `404` between search and
+- **Dedup** — `Resolve-ppdm2JiraAction($client,$incident,$target)` → `{ Action='Create'|'Comment'; Key }`.
+  Calls `Find-ppdm2JiraOpenIssue`; Jira is the source of truth (ADR-0003). On a `404` between search and
   write, the orchestrator falls back to create (contract §8).
 
-## 5. `Public/Invoke-Ppdm2JiraSync.ps1` — orchestrator
+## 5. `Public/Invoke-ppdm2JiraSync.ps1` — orchestrator
 
 `[CmdletBinding()]`, params: `-ConfigPath`, `-Instance` (filter), `-DryRun`. Per-instance, isolated:
 
@@ -112,7 +112,7 @@ One `*.Tests.ps1` per unit; fixtures under `tests/fixtures/`; HTTP fully mocked.
 |---|---|
 | Normalizer | both sources → Incident; severity mapping; StrictMode-safe missing fields; 255-char truncation |
 | PpdmClient | filter-string construction (mock `Get-PPDMactivities`/`Get-PPDMalerts`); 24-hour `HH` timestamp |
-| JiraClient | **Cloud and DC**: auth header per mode; ADF vs wiki body; search/create/comment/remotelink request shapes; `429`/`5xx` retry; `404`→create fallback (mock `Invoke-Ppdm2JiraRequest`) |
+| JiraClient | **Cloud and DC**: auth header per mode; ADF vs wiki body; search/create/comment/remotelink request shapes; `429`/`5xx` retry; `404`→create fallback (mock `Invoke-ppdm2JiraRequest`) |
 | Router | rule precedence + default fallback; label sanitisation; priority map |
 | StateStore | round-trip; atomic write; missing-file default |
 | Dedup | create-vs-comment decision; `404` fallback signalling |

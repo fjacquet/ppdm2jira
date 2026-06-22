@@ -1,4 +1,4 @@
-# Runs the full Pester suite for the Ppdm2Jira module.
+# Runs the full Pester suite for the ppdm2Jira module.
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $config = New-PesterConfiguration
 $config.Run.Path = $here

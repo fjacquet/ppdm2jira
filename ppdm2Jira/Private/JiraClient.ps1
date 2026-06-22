@@ -3,13 +3,13 @@
     Auth-abstracted Jira client for Cloud (v3/Basic/ADF) and Data Center (v2/Bearer/wiki).
 .DESCRIPTION
     One config selects flavour; only auth and body-format branch. All network I/O funnels
-    through Invoke-Ppdm2JiraHttp (the single mockable boundary). Operations live in the same
+    through Invoke-ppdm2JiraHttp (the single mockable boundary). Operations live in the same
     file (see find/create/comment/remotelink). Secrets are fetched at client construction and
     never stored on the returned object (NFR-3, ADR-0006).
 #>
 Set-StrictMode -Version Latest
 
-function Get-Ppdm2JiraSecret {
+function Get-ppdm2JiraSecret {
     [OutputType([string])]
     param([Parameter(Mandatory)][string] $Name)
     if (-not (Get-Command Get-Secret -ErrorAction SilentlyContinue)) {
@@ -18,14 +18,14 @@ function Get-Ppdm2JiraSecret {
     return [string](Get-Secret -Name $Name -AsPlainText)
 }
 
-function New-Ppdm2JiraClient {
+function New-ppdm2JiraClient {
     # PSUseShouldProcessForStateChangingFunctions: this is a pure factory function that
     # constructs and returns a configuration object; it makes no system state changes.
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     [OutputType([pscustomobject])]
     param([Parameter(Mandatory)][hashtable] $Config)
 
-    $secret = Get-Ppdm2JiraSecret -Name $Config.secretName
+    $secret = Get-ppdm2JiraSecret -Name $Config.secretName
     switch ($Config.authMode) {
         'basic' {
             $pair = '{0}:{1}' -f $Config.email, $secret
@@ -47,7 +47,7 @@ function New-Ppdm2JiraClient {
     }
 }
 
-function ConvertTo-Ppdm2JiraAdf {
+function ConvertTo-ppdm2JiraAdf {
     [OutputType([System.Collections.Specialized.OrderedDictionary])]
     param([string] $Text)
     $paras = New-Object System.Collections.Generic.List[object]
@@ -58,13 +58,13 @@ function ConvertTo-Ppdm2JiraAdf {
     return [ordered]@{ type = 'doc'; version = 1; content = $paras.ToArray() }
 }
 
-function Get-Ppdm2JiraBody {
+function Get-ppdm2JiraBody {
     param([Parameter(Mandatory)] $Client, [string] $Text)
-    if ($Client.bodyFormat -eq 'adf') { return (ConvertTo-Ppdm2JiraAdf -Text $Text) }
+    if ($Client.bodyFormat -eq 'adf') { return (ConvertTo-ppdm2JiraAdf -Text $Text) }
     return $Text
 }
 
-function Invoke-Ppdm2JiraHttp {
+function Invoke-ppdm2JiraHttp {
     <# Integration boundary. Returns @{StatusCode;Headers;Content}; never throws for HTTP error codes. #>
     [OutputType([pscustomobject])]
     param(
@@ -88,7 +88,7 @@ function Invoke-Ppdm2JiraHttp {
     }
     catch {
         $ex   = $_.Exception
-        $resp = Get-Ppdm2JiraProp $ex 'Response'
+        $resp = Get-ppdm2JiraProp $ex 'Response'
         if ($null -ne $resp) {
             if ($resp -is [System.Net.HttpWebResponse]) {
                 # Windows PowerShell 5.1 path: WebException -> HttpWebResponse
@@ -103,8 +103,8 @@ function Invoke-Ppdm2JiraHttp {
                 $hdrs    = @{}
                 foreach ($h in $resp.Headers) { $hdrs[$h.Key] = ($h.Value -join ',') }
                 $headers = $hdrs
-                $ed  = Get-Ppdm2JiraProp $_ 'ErrorDetails'
-                $raw = if ($null -ne $ed) { Get-Ppdm2JiraProp $ed 'Message' } else { $null }
+                $ed  = Get-ppdm2JiraProp $_ 'ErrorDetails'
+                $raw = if ($null -ne $ed) { Get-ppdm2JiraProp $ed 'Message' } else { $null }
             }
             $content = if ($raw) { try { $raw | ConvertFrom-Json } catch { $raw } } else { $null }
             return [pscustomobject]@{ StatusCode = $code; Headers = $headers; Content = $content }
@@ -116,7 +116,7 @@ function Invoke-Ppdm2JiraHttp {
     }
 }
 
-function Invoke-Ppdm2JiraRequest {
+function Invoke-ppdm2JiraRequest {
     [OutputType([pscustomobject])]
     param(
         [Parameter(Mandatory)] $Client,
@@ -133,7 +133,7 @@ function Invoke-Ppdm2JiraRequest {
     # Retries are bounded: 1 initial attempt + up to $MaxRetries retries (default 3 => at most 4 calls).
     while ($true) {
         $attempt++
-        $r = Invoke-Ppdm2JiraHttp -Uri $uri -Method $Method -Headers $headers -JsonBody $json -SkipTls:(-not $Client.tlsValidate)
+        $r = Invoke-ppdm2JiraHttp -Uri $uri -Method $Method -Headers $headers -JsonBody $json -SkipTls:(-not $Client.tlsValidate)
         $retryable = @(429, 500, 502, 503, 504)
         if (($r.StatusCode -in $retryable) -and ($attempt -le $MaxRetries)) {
             $delay = [int][math]::Min(30, [math]::Pow(2, $attempt))
@@ -148,7 +148,7 @@ function Invoke-Ppdm2JiraRequest {
     }
 }
 
-function Find-Ppdm2JiraOpenIssue {
+function Find-ppdm2JiraOpenIssue {
     [OutputType([string])]
     param(
         [Parameter(Mandatory)] $Client,
@@ -158,20 +158,20 @@ function Find-Ppdm2JiraOpenIssue {
     $jql = 'project = "{0}" AND labels = "{1}" AND statusCategory != Done ORDER BY created DESC' -f $Project, $Label
     if ($Client.apiBase -like '*api/3') {
         $body = @{ jql = $jql; fields = @('key', 'status'); maxResults = 1 }
-        $res  = Invoke-Ppdm2JiraRequest -Client $Client -Method POST -Path '/search/jql' -Body $body
+        $res  = Invoke-ppdm2JiraRequest -Client $Client -Method POST -Path '/search/jql' -Body $body
     }
     else {
         $body = @{ jql = $jql; fields = @('key', 'status'); maxResults = 1; startAt = 0 }
-        $res  = Invoke-Ppdm2JiraRequest -Client $Client -Method POST -Path '/search' -Body $body
+        $res  = Invoke-ppdm2JiraRequest -Client $Client -Method POST -Path '/search' -Body $body
     }
     if ($res.StatusCode -in 401, 403) { throw "Jira auth/permission error ($($res.StatusCode)) searching for label '$Label'." }
     if ($res.StatusCode -ge 400) { throw "Jira search failed ($($res.StatusCode))." }
-    $issues = Get-Ppdm2JiraProp $res.Content 'issues'
+    $issues = Get-ppdm2JiraProp $res.Content 'issues'
     if ($issues -and @($issues).Count -gt 0) { return [string](@($issues)[0].key) }
     return $null
 }
 
-function New-Ppdm2JiraIssue {
+function New-ppdm2JiraIssue {
     # PSUseShouldProcessForStateChangingFunctions: issues a single POST to Jira as part of
     # a deliberately write-oriented sync pipeline; ShouldProcess would require CmdletBinding
     # on an internal helper that is fully controlled by the orchestrator's own -DryRun gate.
@@ -187,36 +187,36 @@ function New-Ppdm2JiraIssue {
         issuetype   = @{ name = $Target.issueType }
         summary     = $Incident.title
         labels      = @($Target.labels)
-        description = (Get-Ppdm2JiraBody -Client $Client -Text $Incident.body)
+        description = (Get-ppdm2JiraBody -Client $Client -Text $Incident.body)
     }
     if ($Target.priorityId) { $fields.priority   = @{ id = [string]$Target.priorityId } }
     if ($Target.component)  { $fields.components = @(@{ name = $Target.component }) }
 
-    $res = Invoke-Ppdm2JiraRequest -Client $Client -Method POST -Path '/issue' -Body @{ fields = $fields }
+    $res = Invoke-ppdm2JiraRequest -Client $Client -Method POST -Path '/issue' -Body @{ fields = $fields }
     if ($res.StatusCode -in 401, 403) { throw "Jira auth/permission error ($($res.StatusCode)) creating issue in $($Target.project)." }
     if ($res.StatusCode -ge 400) {
         $detail = if ($res.Content) { ($res.Content | ConvertTo-Json -Depth 5 -Compress) } else { '' }
         throw "Jira create failed ($($res.StatusCode)): $detail"
     }
-    return [string](Get-Ppdm2JiraProp $res.Content 'key')
+    return [string](Get-ppdm2JiraProp $res.Content 'key')
 }
 
-function Add-Ppdm2JiraComment {
+function Add-ppdm2JiraComment {
     [OutputType([bool])]
     param(
         [Parameter(Mandatory)] $Client,
         [Parameter(Mandatory)][string] $Key,
         [Parameter(Mandatory)][string] $Text
     )
-    $body = @{ body = (Get-Ppdm2JiraBody -Client $Client -Text $Text) }
-    $res  = Invoke-Ppdm2JiraRequest -Client $Client -Method POST -Path ('/issue/{0}/comment' -f $Key) -Body $body
+    $body = @{ body = (Get-ppdm2JiraBody -Client $Client -Text $Text) }
+    $res  = Invoke-ppdm2JiraRequest -Client $Client -Method POST -Path ('/issue/{0}/comment' -f $Key) -Body $body
     if ($res.StatusCode -eq 404) { return $false }
     if ($res.StatusCode -in 401, 403) { throw "Jira auth/permission error ($($res.StatusCode)) commenting on $Key." }
     if ($res.StatusCode -ge 400) { throw "Jira comment failed ($($res.StatusCode)) on $Key." }
     return $true
 }
 
-function Set-Ppdm2JiraRemoteLink {
+function Set-ppdm2JiraRemoteLink {
     # PSUseShouldProcessForStateChangingFunctions: internal helper called only by the
     # orchestrator which owns the -DryRun gate; adding ShouldProcess here adds no safety.
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
@@ -231,6 +231,6 @@ function Set-Ppdm2JiraRemoteLink {
     $obj = @{ title = $Title }
     if ($Url) { $obj.url = $Url }
     $body = @{ globalId = $GlobalId; object = $obj }
-    $res = Invoke-Ppdm2JiraRequest -Client $Client -Method POST -Path ('/issue/{0}/remotelink' -f $Key) -Body $body
+    $res = Invoke-ppdm2JiraRequest -Client $Client -Method POST -Path ('/issue/{0}/remotelink' -f $Key) -Body $body
     return ($res.StatusCode -lt 400)
 }

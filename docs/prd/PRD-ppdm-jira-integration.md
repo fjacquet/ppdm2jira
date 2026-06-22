@@ -148,7 +148,7 @@ A customer-editable mapping (`config/routing.psd1`) keyed on `(source, severity,
 
 ## 16. Implementation status (2026-06-22)
 
-The `Ppdm2Jira` PowerShell module implementing this PRD has been built and verified (Pester 39/39,
+The `ppdm2Jira` PowerShell module implementing this PRD has been built and verified (Pester 39/39,
 PSScriptAnalyzer clean, Semgrep clean). See the [User Guide](../guide/user-guide.md),
 [CHANGELOG](https://github.com/fjacquet/ppdm2jira/blob/main/CHANGELOG.md), and the [implementation design spec](../superpowers/specs/2026-06-22-ppdm-jira-module-implementation-design.md).
 

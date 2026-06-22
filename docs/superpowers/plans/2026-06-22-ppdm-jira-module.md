@@ -2,38 +2,38 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build the remaining `Ppdm2Jira` PowerShell module units (JiraClient for Cloud+DC, Router, Dedup, StateStore, orchestrator) plus manifest, config, and Pester tests so an end-to-end `-DryRun` sync runs against mocked transports.
+**Goal:** Build the remaining `ppdm2Jira` PowerShell module units (JiraClient for Cloud+DC, Router, Dedup, StateStore, orchestrator) plus manifest, config, and Pester tests so an end-to-end `-DryRun` sync runs against mocked transports.
 
-**Architecture:** A modular PowerShell 5.1 module. Existing pure units (`Normalizer`, `PpdmClient`) feed an `Incident` model through `Router` → `Dedup`/`JiraClient` → `StateStore`, all wired by the `Invoke-Ppdm2JiraSync` orchestrator. Jira Cloud (v3/Basic/ADF) and Data Center (v2/Bearer/wiki) sit behind one client config; a single mockable HTTP boundary (`Invoke-Ppdm2JiraHttp`) keeps every unit test hermetic.
+**Architecture:** A modular PowerShell 5.1 module. Existing pure units (`Normalizer`, `PpdmClient`) feed an `Incident` model through `Router` → `Dedup`/`JiraClient` → `StateStore`, all wired by the `Invoke-ppdm2JiraSync` orchestrator. Jira Cloud (v3/Basic/ADF) and Data Center (v2/Bearer/wiki) sit behind one client config; a single mockable HTTP boundary (`Invoke-ppdm2JiraHttp`) keeps every unit test hermetic.
 
 **Tech Stack:** Windows PowerShell 5.1+, Pester 5, PSScriptAnalyzer, PowerShell SecretManagement, PPDM-pwsh (runtime read transport), Semgrep (pre-delivery scan).
 
 ## Global Constraints
 
 - **Target runtime:** Windows PowerShell `5.1+` — no PS7-only operators (`??`, `?.`, ternary), no PS7-only params (`-SkipHttpErrorCheck`, `-ResponseHeadersVariable`).
-- **StrictMode:** every `.ps1` begins `Set-StrictMode -Version Latest`; all optional property reads go through `Get-Ppdm2JiraProp` (defined in `Normalizer.ps1`).
-- **Naming:** every public/private function is `Verb-Ppdm2Jira<Noun>` using an approved PowerShell verb.
+- **StrictMode:** every `.ps1` begins `Set-StrictMode -Version Latest`; all optional property reads go through `Get-ppdm2JiraProp` (defined in `Normalizer.ps1`).
+- **Naming:** every public/private function is `Verb-ppdm2Jira<Noun>` using an approved PowerShell verb.
 - **Secrets:** never stored on disk, in config, or on returned objects; fetched from SecretManagement at client construction (NFR-3).
 - **Jira summary** ≤ 255 chars; **labels** contain no spaces or colons.
 - **Watermark** advances only after an instance fully succeeds (FR-8 / NFR-2).
-- **Tests** run with no live PPDM/Jira: HTTP is mocked at `Invoke-Ppdm2JiraHttp`; PPDM-pwsh and SecretManagement cmdlets are mocked.
-- **PSTypeName** of the common model is `Ppdm2Jira.Incident` (emitted by existing `Normalizer.ps1`).
+- **Tests** run with no live PPDM/Jira: HTTP is mocked at `Invoke-ppdm2JiraHttp`; PPDM-pwsh and SecretManagement cmdlets are mocked.
+- **PSTypeName** of the common model is `ppdm2Jira.Incident` (emitted by existing `Normalizer.ps1`).
 
 ---
 
 ## File Structure
 
 ```
-Ppdm2Jira/
-├─ Ppdm2Jira.psd1                 # Task 1 — manifest
-├─ Ppdm2Jira.psm1                 # Task 1 — loader
+ppdm2Jira/
+├─ ppdm2Jira.psd1                 # Task 1 — manifest
+├─ ppdm2Jira.psm1                 # Task 1 — loader
 ├─ Public/
-│  └─ Invoke-Ppdm2JiraSync.ps1    # Task 9 — orchestrator (only exported function)
+│  └─ Invoke-ppdm2JiraSync.ps1    # Task 9 — orchestrator (only exported function)
 ├─ Private/
 │  ├─ Normalizer.ps1              # exists
 │  ├─ PpdmClient.ps1              # exists
 │  ├─ StateStore.ps1              # Task 4
-│  ├─ Router.ps1                  # Task 5 (+ ConvertTo-Ppdm2JiraLabel)
+│  ├─ Router.ps1                  # Task 5 (+ ConvertTo-ppdm2JiraLabel)
 │  ├─ JiraClient.ps1              # Tasks 6–7
 │  └─ Dedup.ps1                   # Task 8
 ├─ config/
@@ -50,61 +50,61 @@ Ppdm2Jira/
    └─ fixtures/                    # Tasks 2–3
 ```
 
-**Note on manifest dependencies:** `RequiredModules` is intentionally **omitted** from the manifest so the module imports in CI without PPDM-pwsh / SecretManagement installed. Those dependencies are enforced at runtime (`Assert-Ppdm2JiraPpdmCommand` already does this for PPDM-pwsh; the secret wrapper does it for SecretManagement). Required modules are documented in the manifest's description.
+**Note on manifest dependencies:** `RequiredModules` is intentionally **omitted** from the manifest so the module imports in CI without PPDM-pwsh / SecretManagement installed. Those dependencies are enforced at runtime (`Assert-ppdm2JiraPpdmCommand` already does this for PPDM-pwsh; the secret wrapper does it for SecretManagement). Required modules are documented in the manifest's description.
 
 **Standard test harness** (every `tests/*.Tests.ps1` opens with this, adjusting nothing but the body):
 
 ```powershell
 BeforeAll {
     $script:ModuleRoot = Split-Path -Parent $PSScriptRoot
-    Import-Module (Join-Path $script:ModuleRoot 'Ppdm2Jira.psd1') -Force
+    Import-Module (Join-Path $script:ModuleRoot 'ppdm2Jira.psd1') -Force
 }
 ```
 
-`InModuleScope Ppdm2Jira { ... }` is used to reach private functions and to `Mock` module-internal calls.
+`InModuleScope ppdm2Jira { ... }` is used to reach private functions and to `Mock` module-internal calls.
 
 ---
 
 ## Task 1: Module manifest and loader
 
 **Files:**
-- Create: `Ppdm2Jira/Ppdm2Jira.psm1`
-- Create: `Ppdm2Jira/Ppdm2Jira.psd1`
-- Test: `Ppdm2Jira/tests/Module.Tests.ps1`
+- Create: `ppdm2Jira/ppdm2Jira.psm1`
+- Create: `ppdm2Jira/ppdm2Jira.psd1`
+- Test: `ppdm2Jira/tests/Module.Tests.ps1`
 
 **Interfaces:**
 - Consumes: existing `Private/Normalizer.ps1`, `Private/PpdmClient.ps1`.
-- Produces: an importable module `Ppdm2Jira` whose only exported function (for now) is none yet; private functions reachable via `InModuleScope`. Loader dot-sources `Private/*.ps1` then `Public/*.ps1`.
+- Produces: an importable module `ppdm2Jira` whose only exported function (for now) is none yet; private functions reachable via `InModuleScope`. Loader dot-sources `Private/*.ps1` then `Public/*.ps1`.
 
 - [ ] **Step 1: Write the failing test**
 
-`Ppdm2Jira/tests/Module.Tests.ps1`:
+`ppdm2Jira/tests/Module.Tests.ps1`:
 ```powershell
 BeforeAll {
     $script:ModuleRoot = Split-Path -Parent $PSScriptRoot
-    Import-Module (Join-Path $script:ModuleRoot 'Ppdm2Jira.psd1') -Force
+    Import-Module (Join-Path $script:ModuleRoot 'ppdm2Jira.psd1') -Force
 }
 
 Describe 'Module loads' {
     It 'imports without error and exposes the existing Normalizer privately' {
-        InModuleScope Ppdm2Jira {
-            Get-Command ConvertTo-Ppdm2JiraIncident -ErrorAction Stop | Should -Not -BeNullOrEmpty
+        InModuleScope ppdm2Jira {
+            Get-Command ConvertTo-ppdm2JiraIncident -ErrorAction Stop | Should -Not -BeNullOrEmpty
         }
     }
     It 'exports nothing public yet' {
-        (Get-Module Ppdm2Jira).ExportedFunctions.Count | Should -Be 0
+        (Get-Module ppdm2Jira).ExportedFunctions.Count | Should -Be 0
     }
 }
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pwsh -c "Invoke-Pester ./Ppdm2Jira/tests/Module.Tests.ps1"`
+Run: `pwsh -c "Invoke-Pester ./ppdm2Jira/tests/Module.Tests.ps1"`
 Expected: FAIL — manifest/loader do not exist, `Import-Module` errors.
 
 - [ ] **Step 3: Write the loader**
 
-`Ppdm2Jira/Ppdm2Jira.psm1`:
+`ppdm2Jira/ppdm2Jira.psm1`:
 ```powershell
 Set-StrictMode -Version Latest
 
@@ -126,16 +126,16 @@ if (Test-Path $publicDir) {
 
 - [ ] **Step 4: Write the manifest**
 
-`Ppdm2Jira/Ppdm2Jira.psd1`:
+`ppdm2Jira/ppdm2Jira.psd1`:
 ```powershell
 @{
-    RootModule        = 'Ppdm2Jira.psm1'
+    RootModule        = 'ppdm2Jira.psm1'
     ModuleVersion     = '0.1.0'
     GUID              = 'b6d2f4a1-2c3e-4d5a-9f8b-0a1c2d3e4f5a'
     Author            = 'Platform / Backup Engineering'
     Description       = 'Polls PPDM alerts/failed backups and creates/updates Jira issues. Runtime deps (not import-enforced): PPDM-pwsh, Microsoft.PowerShell.SecretManagement.'
     PowerShellVersion = '5.1'
-    FunctionsToExport = @('Invoke-Ppdm2JiraSync')
+    FunctionsToExport = @('Invoke-ppdm2JiraSync')
     CmdletsToExport   = @()
     VariablesToExport = @()
     AliasesToExport   = @()
@@ -146,14 +146,14 @@ Note: `FunctionsToExport` names the orchestrator (Task 9); until it exists the l
 
 - [ ] **Step 5: Run test to verify it passes**
 
-Run: `pwsh -c "Invoke-Pester ./Ppdm2Jira/tests/Module.Tests.ps1"`
+Run: `pwsh -c "Invoke-Pester ./ppdm2Jira/tests/Module.Tests.ps1"`
 Expected: PASS (2 tests).
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add Ppdm2Jira/Ppdm2Jira.psd1 Ppdm2Jira/Ppdm2Jira.psm1 Ppdm2Jira/tests/Module.Tests.ps1
-git commit -m "feat: add Ppdm2Jira module manifest and loader"
+git add ppdm2Jira/ppdm2Jira.psd1 ppdm2Jira/ppdm2Jira.psm1 ppdm2Jira/tests/Module.Tests.ps1
+git commit -m "feat: add ppdm2Jira module manifest and loader"
 ```
 
 ---
@@ -161,17 +161,17 @@ git commit -m "feat: add Ppdm2Jira module manifest and loader"
 ## Task 2: Normalizer tests (cover existing code)
 
 **Files:**
-- Create: `Ppdm2Jira/tests/Normalizer.Tests.ps1`
-- Create: `Ppdm2Jira/tests/fixtures/activity-failed.json`
-- Create: `Ppdm2Jira/tests/fixtures/alert-critical.json`
+- Create: `ppdm2Jira/tests/Normalizer.Tests.ps1`
+- Create: `ppdm2Jira/tests/fixtures/activity-failed.json`
+- Create: `ppdm2Jira/tests/fixtures/alert-critical.json`
 
 **Interfaces:**
-- Consumes: `ConvertTo-Ppdm2JiraIncident -InputObject <psobject> -Source <alert|activity> -InstanceId <string> [-PpdmBaseUrl <string>]` → `Ppdm2Jira.Incident` with fields `dedupKey, source, instanceId, severity, title, body, category, subcategory, assetRef, occurredAt, ppdmLinks`.
+- Consumes: `ConvertTo-ppdm2JiraIncident -InputObject <psobject> -Source <alert|activity> -InstanceId <string> [-PpdmBaseUrl <string>]` → `ppdm2Jira.Incident` with fields `dedupKey, source, instanceId, severity, title, body, category, subcategory, assetRef, occurredAt, ppdmLinks`.
 - Produces: nothing new (test-only task).
 
 - [ ] **Step 1: Write the fixtures**
 
-`Ppdm2Jira/tests/fixtures/activity-failed.json`:
+`ppdm2Jira/tests/fixtures/activity-failed.json`:
 ```json
 {
   "id": "act-12345",
@@ -186,7 +186,7 @@ git commit -m "feat: add Ppdm2Jira module manifest and loader"
 }
 ```
 
-`Ppdm2Jira/tests/fixtures/alert-critical.json`:
+`ppdm2Jira/tests/fixtures/alert-critical.json`:
 ```json
 {
   "id": "alert-a1b2",
@@ -203,44 +203,44 @@ git commit -m "feat: add Ppdm2Jira module manifest and loader"
 
 - [ ] **Step 2: Write the failing test**
 
-`Ppdm2Jira/tests/Normalizer.Tests.ps1`:
+`ppdm2Jira/tests/Normalizer.Tests.ps1`:
 ```powershell
 BeforeAll {
     $script:ModuleRoot = Split-Path -Parent $PSScriptRoot
-    Import-Module (Join-Path $script:ModuleRoot 'Ppdm2Jira.psd1') -Force
+    Import-Module (Join-Path $script:ModuleRoot 'ppdm2Jira.psd1') -Force
     $script:Fix = Join-Path $PSScriptRoot 'fixtures'
 }
 
-Describe 'ConvertTo-Ppdm2JiraIncident — activity' {
+Describe 'ConvertTo-ppdm2JiraIncident — activity' {
     BeforeAll {
         $raw = Get-Content -Raw (Join-Path $script:Fix 'activity-failed.json') | ConvertFrom-Json
-        $script:inc = $raw | ConvertTo-Ppdm2JiraIncident -Source activity -InstanceId prod1 -PpdmBaseUrl 'https://prod1.ppdm.example/api/v2'
+        $script:inc = $raw | ConvertTo-ppdm2JiraIncident -Source activity -InstanceId prod1 -PpdmBaseUrl 'https://prod1.ppdm.example/api/v2'
     }
     It 'maps FAILED to CRITICAL severity' { $script:inc.severity | Should -Be 'CRITICAL' }
     It 'builds a namespaced dedup key' { $script:inc.dedupKey | Should -Be 'ppdm:prod1:act-12345' }
     It 'sets source to activity' { $script:inc.source | Should -Be 'activity' }
     It 'includes the error detail in the body' { $script:inc.body | Should -Match 'VADP mount timed out' }
-    It 'carries the PSTypeName' { $script:inc.PSObject.TypeNames | Should -Contain 'Ppdm2Jira.Incident' }
+    It 'carries the PSTypeName' { $script:inc.PSObject.TypeNames | Should -Contain 'ppdm2Jira.Incident' }
 }
 
-Describe 'ConvertTo-Ppdm2JiraIncident — alert' {
+Describe 'ConvertTo-ppdm2JiraIncident — alert' {
     BeforeAll {
         $raw = Get-Content -Raw (Join-Path $script:Fix 'alert-critical.json') | ConvertFrom-Json
-        $script:inc = $raw | ConvertTo-Ppdm2JiraIncident -Source alert -InstanceId prod1 -PpdmBaseUrl 'https://prod1.ppdm.example/api/v2'
+        $script:inc = $raw | ConvertTo-ppdm2JiraIncident -Source alert -InstanceId prod1 -PpdmBaseUrl 'https://prod1.ppdm.example/api/v2'
     }
     It 'keeps CRITICAL severity from the alert' { $script:inc.severity | Should -Be 'CRITICAL' }
     It 'builds the alert dedup key' { $script:inc.dedupKey | Should -Be 'ppdm:prod1:alert-a1b2' }
 }
 
-Describe 'ConvertTo-Ppdm2JiraIncident — robustness' {
+Describe 'ConvertTo-ppdm2JiraIncident — robustness' {
     It 'does not throw on a missing result/error under StrictMode' {
         $raw = [pscustomobject]@{ id = 'act-1'; result = [pscustomobject]@{ status = 'FAILED' } }
-        { $raw | ConvertTo-Ppdm2JiraIncident -Source activity -InstanceId prod1 } | Should -Not -Throw
+        { $raw | ConvertTo-ppdm2JiraIncident -Source activity -InstanceId prod1 } | Should -Not -Throw
     }
     It 'truncates a long title to 255 chars' {
         $long = 'x' * 400
         $raw  = [pscustomobject]@{ id = 'a'; severity = 'WARNING'; category = 'C'; message = $long }
-        $inc  = $raw | ConvertTo-Ppdm2JiraIncident -Source alert -InstanceId prod1
+        $inc  = $raw | ConvertTo-ppdm2JiraIncident -Source alert -InstanceId prod1
         $inc.title.Length | Should -BeLessOrEqual 255
     }
 }
@@ -248,13 +248,13 @@ Describe 'ConvertTo-Ppdm2JiraIncident — robustness' {
 
 - [ ] **Step 3: Run test to verify behavior**
 
-Run: `pwsh -c "Invoke-Pester ./Ppdm2Jira/tests/Normalizer.Tests.ps1"`
+Run: `pwsh -c "Invoke-Pester ./ppdm2Jira/tests/Normalizer.Tests.ps1"`
 Expected: PASS (8 tests). If any fail, the bug is in the test's expectation — reconcile against `Private/Normalizer.ps1`, do not change the Normalizer unless a real defect is found.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add Ppdm2Jira/tests/Normalizer.Tests.ps1 Ppdm2Jira/tests/fixtures/activity-failed.json Ppdm2Jira/tests/fixtures/alert-critical.json
+git add ppdm2Jira/tests/Normalizer.Tests.ps1 ppdm2Jira/tests/fixtures/activity-failed.json ppdm2Jira/tests/fixtures/alert-critical.json
 git commit -m "test: cover Normalizer alert/activity transforms"
 ```
 
@@ -263,19 +263,19 @@ git commit -m "test: cover Normalizer alert/activity transforms"
 ## Task 3: PpdmClient tests (cover existing code)
 
 **Files:**
-- Create: `Ppdm2Jira/tests/PpdmClient.Tests.ps1`
+- Create: `ppdm2Jira/tests/PpdmClient.Tests.ps1`
 
 **Interfaces:**
-- Consumes: `Get-Ppdm2JiraAlerts -InstanceId -Since [-Severity] [-Category] [-UnacknowledgedOnly] [-PageSize] [-PpdmBaseUrl]` and `Get-Ppdm2JiraFailedBackups -InstanceId -Since [-Status] [-Category] [-PageSize] [-PpdmBaseUrl]`. These call `Get-PPDMalerts -filter -body` and `Get-PPDMactivities -filter -pageSize`, piping results through `ConvertTo-Ppdm2JiraIncident`.
+- Consumes: `Get-ppdm2JiraAlerts -InstanceId -Since [-Severity] [-Category] [-UnacknowledgedOnly] [-PageSize] [-PpdmBaseUrl]` and `Get-ppdm2JiraFailedBackups -InstanceId -Since [-Status] [-Category] [-PageSize] [-PpdmBaseUrl]`. These call `Get-PPDMalerts -filter -body` and `Get-PPDMactivities -filter -pageSize`, piping results through `ConvertTo-ppdm2JiraIncident`.
 - Produces: nothing new (test-only task).
 
 - [ ] **Step 1: Write the failing test**
 
-`Ppdm2Jira/tests/PpdmClient.Tests.ps1`:
+`ppdm2Jira/tests/PpdmClient.Tests.ps1`:
 ```powershell
 BeforeAll {
     $script:ModuleRoot = Split-Path -Parent $PSScriptRoot
-    Import-Module (Join-Path $script:ModuleRoot 'Ppdm2Jira.psd1') -Force
+    Import-Module (Join-Path $script:ModuleRoot 'ppdm2Jira.psd1') -Force
     # PPDM-pwsh is not installed in CI: provide stubs so the module's cmdlets resolve and are mockable.
     function global:Get-PPDMactivities { param($filter, $pageSize) }
     function global:Get-PPDMalerts     { param($filter, $body) }
@@ -284,16 +284,16 @@ AfterAll {
     Remove-Item Function:\Get-PPDMactivities, Function:\Get-PPDMalerts -ErrorAction SilentlyContinue
 }
 
-Describe 'Get-Ppdm2JiraFailedBackups' {
+Describe 'Get-ppdm2JiraFailedBackups' {
     It 'builds a job-level filter with 24-hour UTC timestamp and pipes through the Normalizer' {
-        InModuleScope Ppdm2Jira {
+        InModuleScope ppdm2Jira {
             $captured = $null
             Mock Get-PPDMactivities {
                 $script:captured = $filter
                 [pscustomobject]@{ id = 'act-1'; result = [pscustomobject]@{ status = 'FAILED' } }
             }
             $since = [datetime]::SpecifyKind([datetime]'2026-06-20T13:05:09', 'Utc')
-            $out = Get-Ppdm2JiraFailedBackups -InstanceId prod1 -Since $since
+            $out = Get-ppdm2JiraFailedBackups -InstanceId prod1 -Since $since
             $script:captured | Should -Match 'result\.status in \("FAILED","OK_WITH_ERRORS"\)'
             $script:captured | Should -Match 'startTime ge "2026-06-20T13:05:09Z"'   # HH (24h), not hh
             $script:captured | Should -Match 'classType in \("JOB","JOB_GROUP"\)'
@@ -302,16 +302,16 @@ Describe 'Get-Ppdm2JiraFailedBackups' {
     }
 }
 
-Describe 'Get-Ppdm2JiraAlerts' {
+Describe 'Get-ppdm2JiraAlerts' {
     It 'builds a severity+postedTime filter and appends UnacknowledgedOnly' {
-        InModuleScope Ppdm2Jira {
+        InModuleScope ppdm2Jira {
             $captured = $null
             Mock Get-PPDMalerts {
                 $script:captured = $filter
                 [pscustomobject]@{ id = 'al-1'; severity = 'CRITICAL'; category = 'PROTECTION'; message = 'm' }
             }
             $since = [datetime]::SpecifyKind([datetime]'2026-06-20T00:00:00', 'Utc')
-            $out = Get-Ppdm2JiraAlerts -InstanceId prod1 -Since $since -UnacknowledgedOnly
+            $out = Get-ppdm2JiraAlerts -InstanceId prod1 -Since $since -UnacknowledgedOnly
             $script:captured | Should -Match 'severity in \("CRITICAL","WARNING"\)'
             $script:captured | Should -Match 'acknowledgement\.acknowledgeState eq "UNACKNOWLEDGED"'
             $out.source | Should -Be 'alert'
@@ -322,13 +322,13 @@ Describe 'Get-Ppdm2JiraAlerts' {
 
 - [ ] **Step 2: Run test to verify it passes**
 
-Run: `pwsh -c "Invoke-Pester ./Ppdm2Jira/tests/PpdmClient.Tests.ps1"`
+Run: `pwsh -c "Invoke-Pester ./ppdm2Jira/tests/PpdmClient.Tests.ps1"`
 Expected: PASS (2 tests).
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add Ppdm2Jira/tests/PpdmClient.Tests.ps1
+git add ppdm2Jira/tests/PpdmClient.Tests.ps1
 git commit -m "test: cover PpdmClient filter construction"
 ```
 
@@ -337,21 +337,21 @@ git commit -m "test: cover PpdmClient filter construction"
 ## Task 4: StateStore
 
 **Files:**
-- Create: `Ppdm2Jira/Private/StateStore.ps1`
-- Test: `Ppdm2Jira/tests/StateStore.Tests.ps1`
+- Create: `ppdm2Jira/Private/StateStore.ps1`
+- Test: `ppdm2Jira/tests/StateStore.Tests.ps1`
 
 **Interfaces:**
 - Produces:
-  - `Get-Ppdm2JiraWatermark -InstanceId <string> -StateDir <string>` → `[datetime]` (UTC; `1970-01-01T00:00:00Z` if no file).
-  - `Set-Ppdm2JiraWatermark -InstanceId <string> -Time <datetime> -StateDir <string>` → void; writes `{instanceId, watermark}` JSON atomically (temp + move) to `<StateDir>/<InstanceId>.watermark.json`.
+  - `Get-ppdm2JiraWatermark -InstanceId <string> -StateDir <string>` → `[datetime]` (UTC; `1970-01-01T00:00:00Z` if no file).
+  - `Set-ppdm2JiraWatermark -InstanceId <string> -Time <datetime> -StateDir <string>` → void; writes `{instanceId, watermark}` JSON atomically (temp + move) to `<StateDir>/<InstanceId>.watermark.json`.
 
 - [ ] **Step 1: Write the failing test**
 
-`Ppdm2Jira/tests/StateStore.Tests.ps1`:
+`ppdm2Jira/tests/StateStore.Tests.ps1`:
 ```powershell
 BeforeAll {
     $script:ModuleRoot = Split-Path -Parent $PSScriptRoot
-    Import-Module (Join-Path $script:ModuleRoot 'Ppdm2Jira.psd1') -Force
+    Import-Module (Join-Path $script:ModuleRoot 'ppdm2Jira.psd1') -Force
 }
 
 Describe 'StateStore' {
@@ -362,17 +362,17 @@ Describe 'StateStore' {
         if (Test-Path $script:dir) { Remove-Item $script:dir -Recurse -Force }
     }
     It 'returns epoch start when no watermark exists' {
-        $wm = Get-Ppdm2JiraWatermark -InstanceId prod1 -StateDir $script:dir
+        $wm = Get-ppdm2JiraWatermark -InstanceId prod1 -StateDir $script:dir
         $wm.ToUniversalTime().ToString('yyyy-MM-dd') | Should -Be '1970-01-01'
     }
     It 'round-trips a watermark through write then read' {
         $t = [datetime]::SpecifyKind([datetime]'2026-06-21T10:11:12', 'Utc')
-        Set-Ppdm2JiraWatermark -InstanceId prod1 -Time $t -StateDir $script:dir
-        $back = Get-Ppdm2JiraWatermark -InstanceId prod1 -StateDir $script:dir
+        Set-ppdm2JiraWatermark -InstanceId prod1 -Time $t -StateDir $script:dir
+        $back = Get-ppdm2JiraWatermark -InstanceId prod1 -StateDir $script:dir
         $back.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ') | Should -Be '2026-06-21T10:11:12Z'
     }
     It 'leaves no .tmp file after an atomic write' {
-        Set-Ppdm2JiraWatermark -InstanceId prod1 -Time (Get-Date) -StateDir $script:dir
+        Set-ppdm2JiraWatermark -InstanceId prod1 -Time (Get-Date) -StateDir $script:dir
         (Get-ChildItem $script:dir -Filter '*.tmp').Count | Should -Be 0
     }
 }
@@ -380,12 +380,12 @@ Describe 'StateStore' {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pwsh -c "Invoke-Pester ./Ppdm2Jira/tests/StateStore.Tests.ps1"`
-Expected: FAIL — `Get-Ppdm2JiraWatermark` not defined.
+Run: `pwsh -c "Invoke-Pester ./ppdm2Jira/tests/StateStore.Tests.ps1"`
+Expected: FAIL — `Get-ppdm2JiraWatermark` not defined.
 
 - [ ] **Step 3: Write the implementation**
 
-`Ppdm2Jira/Private/StateStore.ps1`:
+`ppdm2Jira/Private/StateStore.ps1`:
 ```powershell
 <#
 .SYNOPSIS
@@ -396,18 +396,18 @@ Expected: FAIL — `Get-Ppdm2JiraWatermark` not defined.
 #>
 Set-StrictMode -Version Latest
 
-function Get-Ppdm2JiraWatermarkPath {
+function Get-ppdm2JiraWatermarkPath {
     param([Parameter(Mandatory)][string] $InstanceId, [Parameter(Mandatory)][string] $StateDir)
     return (Join-Path $StateDir ("{0}.watermark.json" -f $InstanceId))
 }
 
-function Get-Ppdm2JiraWatermark {
+function Get-ppdm2JiraWatermark {
     [OutputType([datetime])]
     param(
         [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string] $InstanceId,
         [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string] $StateDir
     )
-    $path = Get-Ppdm2JiraWatermarkPath -InstanceId $InstanceId -StateDir $StateDir
+    $path = Get-ppdm2JiraWatermarkPath -InstanceId $InstanceId -StateDir $StateDir
     if (-not (Test-Path $path)) {
         return [datetime]::SpecifyKind([datetime]'1970-01-01T00:00:00', 'Utc')
     }
@@ -415,7 +415,7 @@ function Get-Ppdm2JiraWatermark {
     return ([datetimeoffset]::Parse([string]$obj.watermark)).UtcDateTime
 }
 
-function Set-Ppdm2JiraWatermark {
+function Set-ppdm2JiraWatermark {
     param(
         [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string] $InstanceId,
         [Parameter(Mandatory)][datetime] $Time,
@@ -424,7 +424,7 @@ function Set-Ppdm2JiraWatermark {
     if (-not (Test-Path $StateDir)) {
         New-Item -ItemType Directory -Path $StateDir -Force | Out-Null
     }
-    $path = Get-Ppdm2JiraWatermarkPath -InstanceId $InstanceId -StateDir $StateDir
+    $path = Get-ppdm2JiraWatermarkPath -InstanceId $InstanceId -StateDir $StateDir
     $tmp  = "$path.tmp"
     $payload = [ordered]@{
         instanceId = $InstanceId
@@ -437,13 +437,13 @@ function Set-Ppdm2JiraWatermark {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `pwsh -c "Invoke-Pester ./Ppdm2Jira/tests/StateStore.Tests.ps1"`
+Run: `pwsh -c "Invoke-Pester ./ppdm2Jira/tests/StateStore.Tests.ps1"`
 Expected: PASS (3 tests).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add Ppdm2Jira/Private/StateStore.ps1 Ppdm2Jira/tests/StateStore.Tests.ps1
+git add ppdm2Jira/Private/StateStore.ps1 ppdm2Jira/tests/StateStore.Tests.ps1
 git commit -m "feat: add StateStore with atomic per-instance watermark"
 ```
 
@@ -452,24 +452,24 @@ git commit -m "feat: add StateStore with atomic per-instance watermark"
 ## Task 5: Router, label sanitiser, and config templates
 
 **Files:**
-- Create: `Ppdm2Jira/Private/Router.ps1`
-- Create: `Ppdm2Jira/config/routing.psd1.example`
-- Create: `Ppdm2Jira/config/settings.psd1.example`
-- Test: `Ppdm2Jira/tests/Router.Tests.ps1`
+- Create: `ppdm2Jira/Private/Router.ps1`
+- Create: `ppdm2Jira/config/routing.psd1.example`
+- Create: `ppdm2Jira/config/settings.psd1.example`
+- Test: `ppdm2Jira/tests/Router.Tests.ps1`
 
 **Interfaces:**
 - Produces:
-  - `ConvertTo-Ppdm2JiraLabel -DedupKey <string>` → `[string]` with `:` and whitespace replaced by `_`.
-  - `Resolve-Ppdm2JiraTarget -Incident <Ppdm2Jira.Incident> -RoutingTable <hashtable>` → `[pscustomobject]` `JiraTarget` `{ project, issueType, component, assigneeGroup, priorityId, labels[] }`. First matching rule wins; falls back to `RoutingTable.default`.
+  - `ConvertTo-ppdm2JiraLabel -DedupKey <string>` → `[string]` with `:` and whitespace replaced by `_`.
+  - `Resolve-ppdm2JiraTarget -Incident <ppdm2Jira.Incident> -RoutingTable <hashtable>` → `[pscustomobject]` `JiraTarget` `{ project, issueType, component, assigneeGroup, priorityId, labels[] }`. First matching rule wins; falls back to `RoutingTable.default`.
 - `RoutingTable` shape: `@{ rules = @( @{ match = @{ source=...; severity=...; category=... }; project=...; issueType=...; component=...; assigneeGroup=...; labels=@(); priority=@{ CRITICAL='1'; WARNING='3' } } ); default = @{ ... same keys, no match ... } }`.
 
 - [ ] **Step 1: Write the failing test**
 
-`Ppdm2Jira/tests/Router.Tests.ps1`:
+`ppdm2Jira/tests/Router.Tests.ps1`:
 ```powershell
 BeforeAll {
     $script:ModuleRoot = Split-Path -Parent $PSScriptRoot
-    Import-Module (Join-Path $script:ModuleRoot 'Ppdm2Jira.psd1') -Force
+    Import-Module (Join-Path $script:ModuleRoot 'ppdm2Jira.psd1') -Force
 
     $script:routing = @{
         rules = @(
@@ -482,20 +482,20 @@ BeforeAll {
     }
     function New-Inc {
         param($source, $severity, $category, $dedup)
-        [pscustomobject]@{ PSTypeName = 'Ppdm2Jira.Incident'; source = $source; severity = $severity
+        [pscustomobject]@{ PSTypeName = 'ppdm2Jira.Incident'; source = $source; severity = $severity
                            category = $category; dedupKey = $dedup }
     }
 }
 
-Describe 'ConvertTo-Ppdm2JiraLabel' {
+Describe 'ConvertTo-ppdm2JiraLabel' {
     It 'replaces colons and spaces with underscores' {
-        ConvertTo-Ppdm2JiraLabel 'ppdm:prod 1:a1b2' | Should -Be 'ppdm_prod_1_a1b2'
+        ConvertTo-ppdm2JiraLabel 'ppdm:prod 1:a1b2' | Should -Be 'ppdm_prod_1_a1b2'
     }
 }
 
-Describe 'Resolve-Ppdm2JiraTarget' {
+Describe 'Resolve-ppdm2JiraTarget' {
     It 'routes a matching incident to the matched rule' {
-        $t = Resolve-Ppdm2JiraTarget -Incident (New-Inc 'activity' 'CRITICAL' 'PROTECT' 'ppdm:prod1:act-1') -RoutingTable $script:routing
+        $t = Resolve-ppdm2JiraTarget -Incident (New-Inc 'activity' 'CRITICAL' 'PROTECT' 'ppdm:prod1:act-1') -RoutingTable $script:routing
         $t.project    | Should -Be 'BKP'
         $t.priorityId | Should -Be '1'
         $t.labels     | Should -Contain 'ppdm_prod1_act-1'
@@ -503,7 +503,7 @@ Describe 'Resolve-Ppdm2JiraTarget' {
         $t.labels     | Should -Contain 'cat_protect'
     }
     It 'falls back to default when nothing matches' {
-        $t = Resolve-Ppdm2JiraTarget -Incident (New-Inc 'alert' 'WARNING' 'OTHER' 'ppdm:prod1:al-9') -RoutingTable $script:routing
+        $t = Resolve-ppdm2JiraTarget -Incident (New-Inc 'alert' 'WARNING' 'OTHER' 'ppdm:prod1:al-9') -RoutingTable $script:routing
         $t.project    | Should -Be 'OPS'
         $t.priorityId | Should -Be '3'
     }
@@ -512,12 +512,12 @@ Describe 'Resolve-Ppdm2JiraTarget' {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pwsh -c "Invoke-Pester ./Ppdm2Jira/tests/Router.Tests.ps1"`
-Expected: FAIL — `ConvertTo-Ppdm2JiraLabel` / `Resolve-Ppdm2JiraTarget` not defined.
+Run: `pwsh -c "Invoke-Pester ./ppdm2Jira/tests/Router.Tests.ps1"`
+Expected: FAIL — `ConvertTo-ppdm2JiraLabel` / `Resolve-ppdm2JiraTarget` not defined.
 
 - [ ] **Step 3: Write the implementation**
 
-`Ppdm2Jira/Private/Router.ps1`:
+`ppdm2Jira/Private/Router.ps1`:
 ```powershell
 <#
 .SYNOPSIS
@@ -529,18 +529,18 @@ Expected: FAIL — `ConvertTo-Ppdm2JiraLabel` / `Resolve-Ppdm2JiraTarget` not de
 #>
 Set-StrictMode -Version Latest
 
-function ConvertTo-Ppdm2JiraLabel {
+function ConvertTo-ppdm2JiraLabel {
     [OutputType([string])]
     param([Parameter(Mandatory)][ValidateNotNullOrEmpty()][string] $DedupKey)
     return ($DedupKey -replace '[:\s]', '_')
 }
 
-function Test-Ppdm2JiraRoutingRule {
+function Test-ppdm2JiraRoutingRule {
     param([Parameter(Mandatory)] $Rule, [Parameter(Mandatory)] $Incident)
     if (-not $Rule.ContainsKey('match') -or $null -eq $Rule.match) { return $false }
     foreach ($key in $Rule.match.Keys) {
         $want = $Rule.match[$key]
-        $have = Get-Ppdm2JiraProp $Incident $key
+        $have = Get-ppdm2JiraProp $Incident $key
         if ($want -is [array]) {
             if ($have -notin $want) { return $false }
         }
@@ -551,7 +551,7 @@ function Test-Ppdm2JiraRoutingRule {
     return $true
 }
 
-function Resolve-Ppdm2JiraTarget {
+function Resolve-ppdm2JiraTarget {
     [OutputType([pscustomobject])]
     param(
         [Parameter(Mandatory)] $Incident,
@@ -560,7 +560,7 @@ function Resolve-Ppdm2JiraTarget {
     $match = $null
     if ($RoutingTable.ContainsKey('rules') -and $RoutingTable.rules) {
         foreach ($rule in $RoutingTable.rules) {
-            if (Test-Ppdm2JiraRoutingRule -Rule $rule -Incident $Incident) { $match = $rule; break }
+            if (Test-ppdm2JiraRoutingRule -Rule $rule -Incident $Incident) { $match = $rule; break }
         }
     }
     if ($null -eq $match) {
@@ -572,9 +572,9 @@ function Resolve-Ppdm2JiraTarget {
 
     $labels = New-Object System.Collections.Generic.List[string]
     $labels.Add('ppdm')
-    $labels.Add((ConvertTo-Ppdm2JiraLabel $Incident.dedupKey))
+    $labels.Add((ConvertTo-ppdm2JiraLabel $Incident.dedupKey))
     $labels.Add(('source_{0}' -f $Incident.source))
-    $category = Get-Ppdm2JiraProp $Incident 'category'
+    $category = Get-ppdm2JiraProp $Incident 'category'
     if ($category) { $labels.Add(('cat_{0}' -f ($category.ToString().ToLower() -replace '[:\s]', '_'))) }
     if ($match.ContainsKey('labels') -and $match.labels) { foreach ($l in $match.labels) { $labels.Add([string]$l) } }
 
@@ -596,12 +596,12 @@ function Resolve-Ppdm2JiraTarget {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `pwsh -c "Invoke-Pester ./Ppdm2Jira/tests/Router.Tests.ps1"`
+Run: `pwsh -c "Invoke-Pester ./ppdm2Jira/tests/Router.Tests.ps1"`
 Expected: PASS (3 tests).
 
 - [ ] **Step 5: Write the config templates**
 
-`Ppdm2Jira/config/routing.psd1.example`:
+`ppdm2Jira/config/routing.psd1.example`:
 ```powershell
 @{
     rules = @(
@@ -634,7 +634,7 @@ Expected: PASS (3 tests).
 }
 ```
 
-`Ppdm2Jira/config/settings.psd1.example`:
+`ppdm2Jira/config/settings.psd1.example`:
 ```powershell
 @{
     stateDir    = './state'
@@ -657,7 +657,7 @@ Expected: PASS (3 tests).
 - [ ] **Step 6: Commit**
 
 ```bash
-git add Ppdm2Jira/Private/Router.ps1 Ppdm2Jira/tests/Router.Tests.ps1 Ppdm2Jira/config/routing.psd1.example Ppdm2Jira/config/settings.psd1.example
+git add ppdm2Jira/Private/Router.ps1 ppdm2Jira/tests/Router.Tests.ps1 ppdm2Jira/config/routing.psd1.example ppdm2Jira/config/settings.psd1.example
 git commit -m "feat: add Router, label sanitiser, and config templates"
 ```
 
@@ -666,25 +666,25 @@ git commit -m "feat: add Router, label sanitiser, and config templates"
 ## Task 6: JiraClient core — config, auth, HTTP boundary, body rendering
 
 **Files:**
-- Create: `Ppdm2Jira/Private/JiraClient.ps1`
-- Test: `Ppdm2Jira/tests/JiraClient.Tests.ps1`
+- Create: `ppdm2Jira/Private/JiraClient.ps1`
+- Test: `ppdm2Jira/tests/JiraClient.Tests.ps1`
 
 **Interfaces:**
 - Produces (consumed by Task 7, 8, 9):
-  - `New-Ppdm2JiraClient -Config <hashtable>` → client `[pscustomobject]` `{ baseUrl, apiBase, authMode, bodyFormat, authHeader, tlsValidate }`. `Config` keys: `baseUrl, apiVersion(3|2), authMode(basic|bearer), bodyFormat(adf|wiki), email, secretName, tlsValidate`.
-  - `Invoke-Ppdm2JiraHttp -Uri -Method -Headers -JsonBody [-SkipTls]` → `{ StatusCode[int], Headers, Content }` — **the only function that touches the network; mocked in all tests.**
-  - `Invoke-Ppdm2JiraRequest -Client -Method -Path [-Body] [-MaxRetries]` → `{ StatusCode, Headers, Content }`; retries `429/5xx`, honours `Retry-After`.
-  - `ConvertTo-Ppdm2JiraAdf -Text` → ordered hashtable ADF doc.
-  - `Get-Ppdm2JiraBody -Client -Text` → ADF doc (Cloud) or plain string (DC).
-  - `Get-Ppdm2JiraSecret -Name` → plaintext secret (wraps `Get-Secret`; mocked in tests).
+  - `New-ppdm2JiraClient -Config <hashtable>` → client `[pscustomobject]` `{ baseUrl, apiBase, authMode, bodyFormat, authHeader, tlsValidate }`. `Config` keys: `baseUrl, apiVersion(3|2), authMode(basic|bearer), bodyFormat(adf|wiki), email, secretName, tlsValidate`.
+  - `Invoke-ppdm2JiraHttp -Uri -Method -Headers -JsonBody [-SkipTls]` → `{ StatusCode[int], Headers, Content }` — **the only function that touches the network; mocked in all tests.**
+  - `Invoke-ppdm2JiraRequest -Client -Method -Path [-Body] [-MaxRetries]` → `{ StatusCode, Headers, Content }`; retries `429/5xx`, honours `Retry-After`.
+  - `ConvertTo-ppdm2JiraAdf -Text` → ordered hashtable ADF doc.
+  - `Get-ppdm2JiraBody -Client -Text` → ADF doc (Cloud) or plain string (DC).
+  - `Get-ppdm2JiraSecret -Name` → plaintext secret (wraps `Get-Secret`; mocked in tests).
 
 - [ ] **Step 1: Write the failing test**
 
-`Ppdm2Jira/tests/JiraClient.Tests.ps1`:
+`ppdm2Jira/tests/JiraClient.Tests.ps1`:
 ```powershell
 BeforeAll {
     $script:ModuleRoot = Split-Path -Parent $PSScriptRoot
-    Import-Module (Join-Path $script:ModuleRoot 'Ppdm2Jira.psd1') -Force
+    Import-Module (Join-Path $script:ModuleRoot 'ppdm2Jira.psd1') -Force
     # SecretManagement not guaranteed in CI: stub Get-Secret so the wrapper resolves/mocks.
     function global:Get-Secret { param([string]$Name, [switch]$AsPlainText) }
 }
@@ -692,11 +692,11 @@ AfterAll {
     Remove-Item Function:\Get-Secret -ErrorAction SilentlyContinue
 }
 
-Describe 'New-Ppdm2JiraClient' {
+Describe 'New-ppdm2JiraClient' {
     It 'builds a Basic auth header for Cloud and never retains the secret' {
-        InModuleScope Ppdm2Jira {
-            Mock Get-Ppdm2JiraSecret { 'tok123' }
-            $c = New-Ppdm2JiraClient -Config @{ baseUrl='https://x.atlassian.net'; apiVersion=3; authMode='basic'; bodyFormat='adf'; email='a@b.c'; secretName='s' }
+        InModuleScope ppdm2Jira {
+            Mock Get-ppdm2JiraSecret { 'tok123' }
+            $c = New-ppdm2JiraClient -Config @{ baseUrl='https://x.atlassian.net'; apiVersion=3; authMode='basic'; bodyFormat='adf'; email='a@b.c'; secretName='s' }
             $c.apiBase    | Should -Be '/rest/api/3'
             $c.authHeader | Should -BeLike 'Basic *'
             $expected = 'Basic ' + [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes('a@b.c:tok123'))
@@ -705,45 +705,45 @@ Describe 'New-Ppdm2JiraClient' {
         }
     }
     It 'builds a Bearer header and v2 base for Data Center' {
-        InModuleScope Ppdm2Jira {
-            Mock Get-Ppdm2JiraSecret { 'pat999' }
-            $c = New-Ppdm2JiraClient -Config @{ baseUrl='https://jira.dc.local'; apiVersion=2; authMode='bearer'; bodyFormat='wiki'; secretName='s' }
+        InModuleScope ppdm2Jira {
+            Mock Get-ppdm2JiraSecret { 'pat999' }
+            $c = New-ppdm2JiraClient -Config @{ baseUrl='https://jira.dc.local'; apiVersion=2; authMode='bearer'; bodyFormat='wiki'; secretName='s' }
             $c.apiBase    | Should -Be '/rest/api/2'
             $c.authHeader | Should -Be 'Bearer pat999'
         }
     }
 }
 
-Describe 'Get-Ppdm2JiraBody' {
+Describe 'Get-ppdm2JiraBody' {
     It 'renders ADF for adf clients' {
-        InModuleScope Ppdm2Jira {
+        InModuleScope ppdm2Jira {
             $c = [pscustomobject]@{ bodyFormat = 'adf' }
-            $doc = Get-Ppdm2JiraBody -Client $c -Text "line1`nline2"
+            $doc = Get-ppdm2JiraBody -Client $c -Text "line1`nline2"
             $doc.type | Should -Be 'doc'
             $doc.content.Count | Should -Be 2
             $doc.content[0].content[0].text | Should -Be 'line1'
         }
     }
     It 'returns a plain string for wiki clients' {
-        InModuleScope Ppdm2Jira {
+        InModuleScope ppdm2Jira {
             $c = [pscustomobject]@{ bodyFormat = 'wiki' }
-            Get-Ppdm2JiraBody -Client $c -Text "a`nb" | Should -Be "a`nb"
+            Get-ppdm2JiraBody -Client $c -Text "a`nb" | Should -Be "a`nb"
         }
     }
 }
 
-Describe 'Invoke-Ppdm2JiraRequest' {
+Describe 'Invoke-ppdm2JiraRequest' {
     It 'retries on 503 then returns the 200 result' {
-        InModuleScope Ppdm2Jira {
+        InModuleScope ppdm2Jira {
             $script:calls = 0
             Mock Start-Sleep {}
-            Mock Invoke-Ppdm2JiraHttp {
+            Mock Invoke-ppdm2JiraHttp {
                 $script:calls++
                 if ($script:calls -eq 1) { return [pscustomobject]@{ StatusCode = 503; Headers = @{}; Content = $null } }
                 return [pscustomobject]@{ StatusCode = 200; Headers = @{}; Content = [pscustomobject]@{ ok = $true } }
             }
             $c = [pscustomobject]@{ baseUrl='https://x'; apiBase='/rest/api/3'; authHeader='Basic z'; tlsValidate=$true }
-            $r = Invoke-Ppdm2JiraRequest -Client $c -Method GET -Path '/myself'
+            $r = Invoke-ppdm2JiraRequest -Client $c -Method GET -Path '/myself'
             $script:calls | Should -Be 2
             $r.StatusCode | Should -Be 200
             $r.Content.ok | Should -BeTrue
@@ -754,25 +754,25 @@ Describe 'Invoke-Ppdm2JiraRequest' {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pwsh -c "Invoke-Pester ./Ppdm2Jira/tests/JiraClient.Tests.ps1"`
+Run: `pwsh -c "Invoke-Pester ./ppdm2Jira/tests/JiraClient.Tests.ps1"`
 Expected: FAIL — JiraClient functions not defined.
 
 - [ ] **Step 3: Write the implementation**
 
-`Ppdm2Jira/Private/JiraClient.ps1`:
+`ppdm2Jira/Private/JiraClient.ps1`:
 ```powershell
 <#
 .SYNOPSIS
     Auth-abstracted Jira client for Cloud (v3/Basic/ADF) and Data Center (v2/Bearer/wiki).
 .DESCRIPTION
     One config selects flavour; only auth and body-format branch. All network I/O funnels
-    through Invoke-Ppdm2JiraHttp (the single mockable boundary). Operations live in the same
+    through Invoke-ppdm2JiraHttp (the single mockable boundary). Operations live in the same
     file (see find/create/comment/remotelink). Secrets are fetched at client construction and
     never stored on the returned object (NFR-3, ADR-0006).
 #>
 Set-StrictMode -Version Latest
 
-function Get-Ppdm2JiraSecret {
+function Get-ppdm2JiraSecret {
     [OutputType([string])]
     param([Parameter(Mandatory)][string] $Name)
     if (-not (Get-Command Get-Secret -ErrorAction SilentlyContinue)) {
@@ -781,11 +781,11 @@ function Get-Ppdm2JiraSecret {
     return [string](Get-Secret -Name $Name -AsPlainText)
 }
 
-function New-Ppdm2JiraClient {
+function New-ppdm2JiraClient {
     [OutputType([pscustomobject])]
     param([Parameter(Mandatory)][hashtable] $Config)
 
-    $secret = Get-Ppdm2JiraSecret -Name $Config.secretName
+    $secret = Get-ppdm2JiraSecret -Name $Config.secretName
     switch ($Config.authMode) {
         'basic' {
             $pair = '{0}:{1}' -f $Config.email, $secret
@@ -807,7 +807,7 @@ function New-Ppdm2JiraClient {
     }
 }
 
-function ConvertTo-Ppdm2JiraAdf {
+function ConvertTo-ppdm2JiraAdf {
     [OutputType([System.Collections.Specialized.OrderedDictionary])]
     param([string] $Text)
     $paras = New-Object System.Collections.Generic.List[object]
@@ -818,13 +818,13 @@ function ConvertTo-Ppdm2JiraAdf {
     return [ordered]@{ type = 'doc'; version = 1; content = $paras.ToArray() }
 }
 
-function Get-Ppdm2JiraBody {
+function Get-ppdm2JiraBody {
     param([Parameter(Mandatory)] $Client, [string] $Text)
-    if ($Client.bodyFormat -eq 'adf') { return (ConvertTo-Ppdm2JiraAdf -Text $Text) }
+    if ($Client.bodyFormat -eq 'adf') { return (ConvertTo-ppdm2JiraAdf -Text $Text) }
     return $Text
 }
 
-function Invoke-Ppdm2JiraHttp {
+function Invoke-ppdm2JiraHttp {
     <# Integration boundary. Returns @{StatusCode;Headers;Content}; never throws for HTTP error codes. #>
     [OutputType([pscustomobject])]
     param(
@@ -861,7 +861,7 @@ function Invoke-Ppdm2JiraHttp {
     }
 }
 
-function Invoke-Ppdm2JiraRequest {
+function Invoke-ppdm2JiraRequest {
     [OutputType([pscustomobject])]
     param(
         [Parameter(Mandatory)] $Client,
@@ -877,7 +877,7 @@ function Invoke-Ppdm2JiraRequest {
     $attempt = 0
     while ($true) {
         $attempt++
-        $r = Invoke-Ppdm2JiraHttp -Uri $uri -Method $Method -Headers $headers -JsonBody $json -SkipTls:(-not $Client.tlsValidate)
+        $r = Invoke-ppdm2JiraHttp -Uri $uri -Method $Method -Headers $headers -JsonBody $json -SkipTls:(-not $Client.tlsValidate)
         $retryable = @(429, 500, 502, 503, 504)
         if (($r.StatusCode -in $retryable) -and ($attempt -le $MaxRetries)) {
             $delay = [int][math]::Min(30, [math]::Pow(2, $attempt))
@@ -895,13 +895,13 @@ function Invoke-Ppdm2JiraRequest {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `pwsh -c "Invoke-Pester ./Ppdm2Jira/tests/JiraClient.Tests.ps1"`
+Run: `pwsh -c "Invoke-Pester ./ppdm2Jira/tests/JiraClient.Tests.ps1"`
 Expected: PASS (5 tests).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add Ppdm2Jira/Private/JiraClient.ps1 Ppdm2Jira/tests/JiraClient.Tests.ps1
+git add ppdm2Jira/Private/JiraClient.ps1 ppdm2Jira/tests/JiraClient.Tests.ps1
 git commit -m "feat: add JiraClient core (auth, HTTP boundary, ADF/wiki rendering)"
 ```
 
@@ -910,85 +910,85 @@ git commit -m "feat: add JiraClient core (auth, HTTP boundary, ADF/wiki renderin
 ## Task 7: JiraClient operations — find, create, comment, remote link
 
 **Files:**
-- Modify: `Ppdm2Jira/Private/JiraClient.ps1` (append the four operations)
-- Modify: `Ppdm2Jira/tests/JiraClient.Tests.ps1` (append operation tests)
+- Modify: `ppdm2Jira/Private/JiraClient.ps1` (append the four operations)
+- Modify: `ppdm2Jira/tests/JiraClient.Tests.ps1` (append operation tests)
 
 **Interfaces:**
 - Produces (consumed by Task 8, 9):
-  - `Find-Ppdm2JiraOpenIssue -Client -Project -Label` → issue key `[string]` or `$null`. Throws on 401/403.
-  - `New-Ppdm2JiraIssue -Client -Target -Incident` → issue key `[string]`. Throws on 400/401/403.
-  - `Add-Ppdm2JiraComment -Client -Key -Text` → `[bool]` — `$true` commented, `$false` if 404 (caller creates). Throws on 401/403.
-  - `Set-Ppdm2JiraRemoteLink -Client -Key -GlobalId -Url -Title` → `[bool]` (best effort).
+  - `Find-ppdm2JiraOpenIssue -Client -Project -Label` → issue key `[string]` or `$null`. Throws on 401/403.
+  - `New-ppdm2JiraIssue -Client -Target -Incident` → issue key `[string]`. Throws on 400/401/403.
+  - `Add-ppdm2JiraComment -Client -Key -Text` → `[bool]` — `$true` commented, `$false` if 404 (caller creates). Throws on 401/403.
+  - `Set-ppdm2JiraRemoteLink -Client -Key -GlobalId -Url -Title` → `[bool]` (best effort).
 
 - [ ] **Step 1: Append the failing tests**
 
-Append to `Ppdm2Jira/tests/JiraClient.Tests.ps1`:
+Append to `ppdm2Jira/tests/JiraClient.Tests.ps1`:
 ```powershell
-Describe 'Find-Ppdm2JiraOpenIssue' {
+Describe 'Find-ppdm2JiraOpenIssue' {
     It 'posts to /search/jql for Cloud and returns the first key' {
-        InModuleScope Ppdm2Jira {
+        InModuleScope ppdm2Jira {
             $script:path = $null
-            Mock Invoke-Ppdm2JiraHttp {
+            Mock Invoke-ppdm2JiraHttp {
                 $script:path = $Uri
                 [pscustomobject]@{ StatusCode = 200; Headers = @{}; Content = [pscustomobject]@{ issues = @([pscustomobject]@{ key = 'OPS-1' }) } }
             }
             $c = [pscustomobject]@{ baseUrl='https://x'; apiBase='/rest/api/3'; authHeader='Basic z'; tlsValidate=$true }
-            $key = Find-Ppdm2JiraOpenIssue -Client $c -Project 'OPS' -Label 'ppdm_prod1_a1'
+            $key = Find-ppdm2JiraOpenIssue -Client $c -Project 'OPS' -Label 'ppdm_prod1_a1'
             $key | Should -Be 'OPS-1'
             $script:path | Should -BeLike '*/rest/api/3/search/jql'
         }
     }
     It 'returns $null when no open issue matches' {
-        InModuleScope Ppdm2Jira {
-            Mock Invoke-Ppdm2JiraHttp { [pscustomobject]@{ StatusCode = 200; Headers = @{}; Content = [pscustomobject]@{ issues = @() } } }
+        InModuleScope ppdm2Jira {
+            Mock Invoke-ppdm2JiraHttp { [pscustomobject]@{ StatusCode = 200; Headers = @{}; Content = [pscustomobject]@{ issues = @() } } }
             $c = [pscustomobject]@{ baseUrl='https://x'; apiBase='/rest/api/3'; authHeader='Basic z'; tlsValidate=$true }
-            Find-Ppdm2JiraOpenIssue -Client $c -Project 'OPS' -Label 'ppdm_prod1_a1' | Should -BeNullOrEmpty
+            Find-ppdm2JiraOpenIssue -Client $c -Project 'OPS' -Label 'ppdm_prod1_a1' | Should -BeNullOrEmpty
         }
     }
     It 'uses /search for Data Center (v2)' {
-        InModuleScope Ppdm2Jira {
+        InModuleScope ppdm2Jira {
             $script:path = $null
-            Mock Invoke-Ppdm2JiraHttp { $script:path = $Uri; [pscustomobject]@{ StatusCode = 200; Headers = @{}; Content = [pscustomobject]@{ issues = @() } } }
+            Mock Invoke-ppdm2JiraHttp { $script:path = $Uri; [pscustomobject]@{ StatusCode = 200; Headers = @{}; Content = [pscustomobject]@{ issues = @() } } }
             $c = [pscustomobject]@{ baseUrl='https://x'; apiBase='/rest/api/2'; authHeader='Bearer z'; tlsValidate=$true }
-            Find-Ppdm2JiraOpenIssue -Client $c -Project 'OPS' -Label 'l' | Out-Null
+            Find-ppdm2JiraOpenIssue -Client $c -Project 'OPS' -Label 'l' | Out-Null
             $script:path | Should -BeLike '*/rest/api/2/search'
         }
     }
 }
 
-Describe 'New-Ppdm2JiraIssue' {
+Describe 'New-ppdm2JiraIssue' {
     It 'returns the created key on 201' {
-        InModuleScope Ppdm2Jira {
-            Mock Invoke-Ppdm2JiraHttp { [pscustomobject]@{ StatusCode = 201; Headers = @{}; Content = [pscustomobject]@{ key = 'BKP-42' } } }
+        InModuleScope ppdm2Jira {
+            Mock Invoke-ppdm2JiraHttp { [pscustomobject]@{ StatusCode = 201; Headers = @{}; Content = [pscustomobject]@{ key = 'BKP-42' } } }
             $c = [pscustomobject]@{ baseUrl='https://x'; apiBase='/rest/api/3'; authHeader='Basic z'; bodyFormat='adf'; tlsValidate=$true }
             $target = [pscustomobject]@{ project='BKP'; issueType='Incident'; component='Backup Operations'; priorityId='1'; labels=@('ppdm') }
             $inc = [pscustomobject]@{ title='t'; body='b' }
-            New-Ppdm2JiraIssue -Client $c -Target $target -Incident $inc | Should -Be 'BKP-42'
+            New-ppdm2JiraIssue -Client $c -Target $target -Incident $inc | Should -Be 'BKP-42'
         }
     }
     It 'throws on 401' {
-        InModuleScope Ppdm2Jira {
-            Mock Invoke-Ppdm2JiraHttp { [pscustomobject]@{ StatusCode = 401; Headers = @{}; Content = $null } }
+        InModuleScope ppdm2Jira {
+            Mock Invoke-ppdm2JiraHttp { [pscustomobject]@{ StatusCode = 401; Headers = @{}; Content = $null } }
             $c = [pscustomobject]@{ baseUrl='https://x'; apiBase='/rest/api/3'; authHeader='Basic z'; bodyFormat='adf'; tlsValidate=$true }
             $target = [pscustomobject]@{ project='BKP'; issueType='Incident'; priorityId='1'; labels=@(); component=$null }
-            { New-Ppdm2JiraIssue -Client $c -Target $target -Incident ([pscustomobject]@{ title='t'; body='b' }) } | Should -Throw
+            { New-ppdm2JiraIssue -Client $c -Target $target -Incident ([pscustomobject]@{ title='t'; body='b' }) } | Should -Throw
         }
     }
 }
 
-Describe 'Add-Ppdm2JiraComment' {
+Describe 'Add-ppdm2JiraComment' {
     It 'returns $true on success' {
-        InModuleScope Ppdm2Jira {
-            Mock Invoke-Ppdm2JiraHttp { [pscustomobject]@{ StatusCode = 201; Headers = @{}; Content = [pscustomobject]@{ id='10' } } }
+        InModuleScope ppdm2Jira {
+            Mock Invoke-ppdm2JiraHttp { [pscustomobject]@{ StatusCode = 201; Headers = @{}; Content = [pscustomobject]@{ id='10' } } }
             $c = [pscustomobject]@{ baseUrl='https://x'; apiBase='/rest/api/3'; authHeader='Basic z'; bodyFormat='adf'; tlsValidate=$true }
-            Add-Ppdm2JiraComment -Client $c -Key 'OPS-1' -Text 'recurred' | Should -BeTrue
+            Add-ppdm2JiraComment -Client $c -Key 'OPS-1' -Text 'recurred' | Should -BeTrue
         }
     }
     It 'returns $false on 404 so the caller can fall back to create' {
-        InModuleScope Ppdm2Jira {
-            Mock Invoke-Ppdm2JiraHttp { [pscustomobject]@{ StatusCode = 404; Headers = @{}; Content = $null } }
+        InModuleScope ppdm2Jira {
+            Mock Invoke-ppdm2JiraHttp { [pscustomobject]@{ StatusCode = 404; Headers = @{}; Content = $null } }
             $c = [pscustomobject]@{ baseUrl='https://x'; apiBase='/rest/api/3'; authHeader='Basic z'; bodyFormat='adf'; tlsValidate=$true }
-            Add-Ppdm2JiraComment -Client $c -Key 'OPS-404' -Text 'x' | Should -BeFalse
+            Add-ppdm2JiraComment -Client $c -Key 'OPS-404' -Text 'x' | Should -BeFalse
         }
     }
 }
@@ -996,14 +996,14 @@ Describe 'Add-Ppdm2JiraComment' {
 
 - [ ] **Step 2: Run tests to verify the new ones fail**
 
-Run: `pwsh -c "Invoke-Pester ./Ppdm2Jira/tests/JiraClient.Tests.ps1"`
+Run: `pwsh -c "Invoke-Pester ./ppdm2Jira/tests/JiraClient.Tests.ps1"`
 Expected: FAIL — operation functions not defined (earlier 5 still pass).
 
 - [ ] **Step 3: Append the implementation**
 
-Append to `Ppdm2Jira/Private/JiraClient.ps1`:
+Append to `ppdm2Jira/Private/JiraClient.ps1`:
 ```powershell
-function Find-Ppdm2JiraOpenIssue {
+function Find-ppdm2JiraOpenIssue {
     [OutputType([string])]
     param(
         [Parameter(Mandatory)] $Client,
@@ -1013,20 +1013,20 @@ function Find-Ppdm2JiraOpenIssue {
     $jql = 'project = "{0}" AND labels = "{1}" AND statusCategory != Done ORDER BY created DESC' -f $Project, $Label
     if ($Client.apiBase -like '*api/3') {
         $body = @{ jql = $jql; fields = @('key', 'status'); maxResults = 1 }
-        $res  = Invoke-Ppdm2JiraRequest -Client $Client -Method POST -Path '/search/jql' -Body $body
+        $res  = Invoke-ppdm2JiraRequest -Client $Client -Method POST -Path '/search/jql' -Body $body
     }
     else {
         $body = @{ jql = $jql; fields = @('key', 'status'); maxResults = 1; startAt = 0 }
-        $res  = Invoke-Ppdm2JiraRequest -Client $Client -Method POST -Path '/search' -Body $body
+        $res  = Invoke-ppdm2JiraRequest -Client $Client -Method POST -Path '/search' -Body $body
     }
     if ($res.StatusCode -in 401, 403) { throw "Jira auth/permission error ($($res.StatusCode)) searching for label '$Label'." }
     if ($res.StatusCode -ge 400) { throw "Jira search failed ($($res.StatusCode))." }
-    $issues = Get-Ppdm2JiraProp $res.Content 'issues'
+    $issues = Get-ppdm2JiraProp $res.Content 'issues'
     if ($issues -and @($issues).Count -gt 0) { return [string](@($issues)[0].key) }
     return $null
 }
 
-function New-Ppdm2JiraIssue {
+function New-ppdm2JiraIssue {
     [OutputType([string])]
     param(
         [Parameter(Mandatory)] $Client,
@@ -1038,12 +1038,12 @@ function New-Ppdm2JiraIssue {
         issuetype   = @{ name = $Target.issueType }
         summary     = $Incident.title
         labels      = @($Target.labels)
-        description = (Get-Ppdm2JiraBody -Client $Client -Text $Incident.body)
+        description = (Get-ppdm2JiraBody -Client $Client -Text $Incident.body)
     }
     if ($Target.priorityId) { $fields.priority   = @{ id = [string]$Target.priorityId } }
     if ($Target.component)  { $fields.components = @(@{ name = $Target.component }) }
 
-    $res = Invoke-Ppdm2JiraRequest -Client $Client -Method POST -Path '/issue' -Body @{ fields = $fields }
+    $res = Invoke-ppdm2JiraRequest -Client $Client -Method POST -Path '/issue' -Body @{ fields = $fields }
     if ($res.StatusCode -in 401, 403) { throw "Jira auth/permission error ($($res.StatusCode)) creating issue in $($Target.project)." }
     if ($res.StatusCode -ge 400) {
         $detail = if ($res.Content) { ($res.Content | ConvertTo-Json -Depth 5 -Compress) } else { '' }
@@ -1052,22 +1052,22 @@ function New-Ppdm2JiraIssue {
     return [string]$res.Content.key
 }
 
-function Add-Ppdm2JiraComment {
+function Add-ppdm2JiraComment {
     [OutputType([bool])]
     param(
         [Parameter(Mandatory)] $Client,
         [Parameter(Mandatory)][string] $Key,
         [Parameter(Mandatory)][string] $Text
     )
-    $body = @{ body = (Get-Ppdm2JiraBody -Client $Client -Text $Text) }
-    $res  = Invoke-Ppdm2JiraRequest -Client $Client -Method POST -Path ('/issue/{0}/comment' -f $Key) -Body $body
+    $body = @{ body = (Get-ppdm2JiraBody -Client $Client -Text $Text) }
+    $res  = Invoke-ppdm2JiraRequest -Client $Client -Method POST -Path ('/issue/{0}/comment' -f $Key) -Body $body
     if ($res.StatusCode -eq 404) { return $false }
     if ($res.StatusCode -in 401, 403) { throw "Jira auth/permission error ($($res.StatusCode)) commenting on $Key." }
     if ($res.StatusCode -ge 400) { throw "Jira comment failed ($($res.StatusCode)) on $Key." }
     return $true
 }
 
-function Set-Ppdm2JiraRemoteLink {
+function Set-ppdm2JiraRemoteLink {
     [OutputType([bool])]
     param(
         [Parameter(Mandatory)] $Client,
@@ -1079,20 +1079,20 @@ function Set-Ppdm2JiraRemoteLink {
     $obj = @{ title = $Title }
     if ($Url) { $obj.url = $Url }
     $body = @{ globalId = $GlobalId; object = $obj }
-    $res = Invoke-Ppdm2JiraRequest -Client $Client -Method POST -Path ('/issue/{0}/remotelink' -f $Key) -Body $body
+    $res = Invoke-ppdm2JiraRequest -Client $Client -Method POST -Path ('/issue/{0}/remotelink' -f $Key) -Body $body
     return ($res.StatusCode -lt 400)
 }
 ```
 
 - [ ] **Step 4: Run tests to verify all pass**
 
-Run: `pwsh -c "Invoke-Pester ./Ppdm2Jira/tests/JiraClient.Tests.ps1"`
+Run: `pwsh -c "Invoke-Pester ./ppdm2Jira/tests/JiraClient.Tests.ps1"`
 Expected: PASS (12 tests total).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add Ppdm2Jira/Private/JiraClient.ps1 Ppdm2Jira/tests/JiraClient.Tests.ps1
+git add ppdm2Jira/Private/JiraClient.ps1 ppdm2Jira/tests/JiraClient.Tests.ps1
 git commit -m "feat: add JiraClient operations (find/create/comment/remotelink)"
 ```
 
@@ -1101,40 +1101,40 @@ git commit -m "feat: add JiraClient operations (find/create/comment/remotelink)"
 ## Task 8: Dedup
 
 **Files:**
-- Create: `Ppdm2Jira/Private/Dedup.ps1`
-- Test: `Ppdm2Jira/tests/Dedup.Tests.ps1`
+- Create: `ppdm2Jira/Private/Dedup.ps1`
+- Test: `ppdm2Jira/tests/Dedup.Tests.ps1`
 
 **Interfaces:**
-- Consumes: `Find-Ppdm2JiraOpenIssue`, `ConvertTo-Ppdm2JiraLabel`.
-- Produces: `Resolve-Ppdm2JiraAction -Client -Incident -Target` → `[pscustomobject]` `{ Action = 'Create'|'Comment'; Key = <string|null> }`. Jira is source of truth (ADR-0003).
+- Consumes: `Find-ppdm2JiraOpenIssue`, `ConvertTo-ppdm2JiraLabel`.
+- Produces: `Resolve-ppdm2JiraAction -Client -Incident -Target` → `[pscustomobject]` `{ Action = 'Create'|'Comment'; Key = <string|null> }`. Jira is source of truth (ADR-0003).
 
 - [ ] **Step 1: Write the failing test**
 
-`Ppdm2Jira/tests/Dedup.Tests.ps1`:
+`ppdm2Jira/tests/Dedup.Tests.ps1`:
 ```powershell
 BeforeAll {
     $script:ModuleRoot = Split-Path -Parent $PSScriptRoot
-    Import-Module (Join-Path $script:ModuleRoot 'Ppdm2Jira.psd1') -Force
+    Import-Module (Join-Path $script:ModuleRoot 'ppdm2Jira.psd1') -Force
 }
 
-Describe 'Resolve-Ppdm2JiraAction' {
+Describe 'Resolve-ppdm2JiraAction' {
     It 'returns Comment with the existing key when an open issue is found' {
-        InModuleScope Ppdm2Jira {
-            Mock Find-Ppdm2JiraOpenIssue { 'OPS-7' }
+        InModuleScope ppdm2Jira {
+            Mock Find-ppdm2JiraOpenIssue { 'OPS-7' }
             $inc = [pscustomobject]@{ dedupKey = 'ppdm:prod1:a1' }
             $target = [pscustomobject]@{ project = 'OPS' }
-            $a = Resolve-Ppdm2JiraAction -Client ([pscustomobject]@{}) -Incident $inc -Target $target
+            $a = Resolve-ppdm2JiraAction -Client ([pscustomobject]@{}) -Incident $inc -Target $target
             $a.Action | Should -Be 'Comment'
             $a.Key    | Should -Be 'OPS-7'
         }
     }
     It 'returns Create when no open issue is found, searching by sanitised label' {
-        InModuleScope Ppdm2Jira {
+        InModuleScope ppdm2Jira {
             $script:label = $null
-            Mock Find-Ppdm2JiraOpenIssue { $script:label = $Label; $null }
+            Mock Find-ppdm2JiraOpenIssue { $script:label = $Label; $null }
             $inc = [pscustomobject]@{ dedupKey = 'ppdm:prod1:a1' }
             $target = [pscustomobject]@{ project = 'OPS' }
-            $a = Resolve-Ppdm2JiraAction -Client ([pscustomobject]@{}) -Incident $inc -Target $target
+            $a = Resolve-ppdm2JiraAction -Client ([pscustomobject]@{}) -Incident $inc -Target $target
             $a.Action     | Should -Be 'Create'
             $a.Key        | Should -BeNullOrEmpty
             $script:label | Should -Be 'ppdm_prod1_a1'
@@ -1145,12 +1145,12 @@ Describe 'Resolve-Ppdm2JiraAction' {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pwsh -c "Invoke-Pester ./Ppdm2Jira/tests/Dedup.Tests.ps1"`
-Expected: FAIL — `Resolve-Ppdm2JiraAction` not defined.
+Run: `pwsh -c "Invoke-Pester ./ppdm2Jira/tests/Dedup.Tests.ps1"`
+Expected: FAIL — `Resolve-ppdm2JiraAction` not defined.
 
 - [ ] **Step 3: Write the implementation**
 
-`Ppdm2Jira/Private/Dedup.ps1`:
+`ppdm2Jira/Private/Dedup.ps1`:
 ```powershell
 <#
 .SYNOPSIS
@@ -1158,15 +1158,15 @@ Expected: FAIL — `Resolve-Ppdm2JiraAction` not defined.
 #>
 Set-StrictMode -Version Latest
 
-function Resolve-Ppdm2JiraAction {
+function Resolve-ppdm2JiraAction {
     [OutputType([pscustomobject])]
     param(
         [Parameter(Mandatory)] $Client,
         [Parameter(Mandatory)] $Incident,
         [Parameter(Mandatory)] $Target
     )
-    $label = ConvertTo-Ppdm2JiraLabel $Incident.dedupKey
-    $key   = Find-Ppdm2JiraOpenIssue -Client $Client -Project $Target.project -Label $label
+    $label = ConvertTo-ppdm2JiraLabel $Incident.dedupKey
+    $key   = Find-ppdm2JiraOpenIssue -Client $Client -Project $Target.project -Label $label
     if ($key) {
         return [pscustomobject]@{ Action = 'Comment'; Key = $key }
     }
@@ -1176,35 +1176,35 @@ function Resolve-Ppdm2JiraAction {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `pwsh -c "Invoke-Pester ./Ppdm2Jira/tests/Dedup.Tests.ps1"`
+Run: `pwsh -c "Invoke-Pester ./ppdm2Jira/tests/Dedup.Tests.ps1"`
 Expected: PASS (2 tests).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add Ppdm2Jira/Private/Dedup.ps1 Ppdm2Jira/tests/Dedup.Tests.ps1
+git add ppdm2Jira/Private/Dedup.ps1 ppdm2Jira/tests/Dedup.Tests.ps1
 git commit -m "feat: add Dedup create-vs-comment resolution"
 ```
 
 ---
 
-## Task 9: Orchestrator (`Invoke-Ppdm2JiraSync`)
+## Task 9: Orchestrator (`Invoke-ppdm2JiraSync`)
 
 **Files:**
-- Create: `Ppdm2Jira/Public/Invoke-Ppdm2JiraSync.ps1`
-- Test: `Ppdm2Jira/tests/Orchestrator.Tests.ps1`
+- Create: `ppdm2Jira/Public/Invoke-ppdm2JiraSync.ps1`
+- Test: `ppdm2Jira/tests/Orchestrator.Tests.ps1`
 
 **Interfaces:**
-- Consumes: every unit above plus `Get-Ppdm2JiraAlerts`, `Get-Ppdm2JiraFailedBackups`, and the runtime helpers `Connect-Ppdm2JiraInstance`, `Write-Ppdm2JiraLog`.
-- Produces: `Invoke-Ppdm2JiraSync -ConfigPath <string> [-Instance <string[]>] [-DryRun]` → exit code `[int]` (0 all-ok, 1 if any instance failed). The single exported function.
+- Consumes: every unit above plus `Get-ppdm2JiraAlerts`, `Get-ppdm2JiraFailedBackups`, and the runtime helpers `Connect-ppdm2JiraInstance`, `Write-ppdm2JiraLog`.
+- Produces: `Invoke-ppdm2JiraSync -ConfigPath <string> [-Instance <string[]>] [-DryRun]` → exit code `[int]` (0 all-ok, 1 if any instance failed). The single exported function.
 
 - [ ] **Step 1: Write the failing test**
 
-`Ppdm2Jira/tests/Orchestrator.Tests.ps1`:
+`ppdm2Jira/tests/Orchestrator.Tests.ps1`:
 ```powershell
 BeforeAll {
     $script:ModuleRoot = Split-Path -Parent $PSScriptRoot
-    Import-Module (Join-Path $script:ModuleRoot 'Ppdm2Jira.psd1') -Force
+    Import-Module (Join-Path $script:ModuleRoot 'ppdm2Jira.psd1') -Force
     $script:tmp = Join-Path ([IO.Path]::GetTempPath()) ("p2j-orch-" + [guid]::NewGuid())
     New-Item -ItemType Directory -Path $script:tmp -Force | Out-Null
 
@@ -1227,65 +1227,65 @@ AfterAll {
     if (Test-Path $script:tmp) { Remove-Item $script:tmp -Recurse -Force }
 }
 
-Describe 'Invoke-Ppdm2JiraSync' {
+Describe 'Invoke-ppdm2JiraSync' {
     BeforeEach {
-        InModuleScope Ppdm2Jira {
-            Mock New-Ppdm2JiraClient { [pscustomobject]@{ baseUrl='https://x'; apiBase='/rest/api/3'; bodyFormat='adf'; tlsValidate=$true } }
-            Mock Connect-Ppdm2JiraInstance {}
-            Mock Get-Ppdm2JiraFailedBackups { @() }
-            Mock Get-Ppdm2JiraAlerts {
-                [pscustomobject]@{ PSTypeName='Ppdm2Jira.Incident'; source='alert'; severity='CRITICAL'; category='PROTECTION'
+        InModuleScope ppdm2Jira {
+            Mock New-ppdm2JiraClient { [pscustomobject]@{ baseUrl='https://x'; apiBase='/rest/api/3'; bodyFormat='adf'; tlsValidate=$true } }
+            Mock Connect-ppdm2JiraInstance {}
+            Mock Get-ppdm2JiraFailedBackups { @() }
+            Mock Get-ppdm2JiraAlerts {
+                [pscustomobject]@{ PSTypeName='ppdm2Jira.Incident'; source='alert'; severity='CRITICAL'; category='PROTECTION'
                                    dedupKey='ppdm:prod1:al-1'; title='t'; body='b'; occurredAt=([datetime]'2026-06-21T00:00:00Z')
                                    ppdmLinks=[pscustomobject]@{ id='al-1'; deepLink='https://prod1/x' } }
             }
-            Mock New-Ppdm2JiraIssue { 'OPS-100' }
-            Mock Set-Ppdm2JiraRemoteLink { $true }
-            Mock Add-Ppdm2JiraComment { $true }
-            Mock Resolve-Ppdm2JiraAction { [pscustomobject]@{ Action='Create'; Key=$null } }
+            Mock New-ppdm2JiraIssue { 'OPS-100' }
+            Mock Set-ppdm2JiraRemoteLink { $true }
+            Mock Add-ppdm2JiraComment { $true }
+            Mock Resolve-ppdm2JiraAction { [pscustomobject]@{ Action='Create'; Key=$null } }
         }
     }
 
     It 'creates an issue and advances the watermark on success' {
-        InModuleScope Ppdm2Jira {
-            $rc = Invoke-Ppdm2JiraSync -ConfigPath $using:settingsPath
+        InModuleScope ppdm2Jira {
+            $rc = Invoke-ppdm2JiraSync -ConfigPath $using:settingsPath
             $rc | Should -Be 0
-            Should -Invoke New-Ppdm2JiraIssue -Times 1
-            Should -Invoke Set-Ppdm2JiraWatermark -Times 1
+            Should -Invoke New-ppdm2JiraIssue -Times 1
+            Should -Invoke Set-ppdm2JiraWatermark -Times 1
         } -Parameters @{ settingsPath = $script:settingsPath }
     }
 
     It 'in DryRun writes nothing and does not advance the watermark' {
-        InModuleScope Ppdm2Jira -Parameters @{ settingsPath = $script:settingsPath } {
-            Mock Set-Ppdm2JiraWatermark {}
-            $rc = Invoke-Ppdm2JiraSync -ConfigPath $settingsPath -DryRun
+        InModuleScope ppdm2Jira -Parameters @{ settingsPath = $script:settingsPath } {
+            Mock Set-ppdm2JiraWatermark {}
+            $rc = Invoke-ppdm2JiraSync -ConfigPath $settingsPath -DryRun
             $rc | Should -Be 0
-            Should -Invoke New-Ppdm2JiraIssue -Times 0
-            Should -Invoke Set-Ppdm2JiraWatermark -Times 0
+            Should -Invoke New-ppdm2JiraIssue -Times 0
+            Should -Invoke Set-ppdm2JiraWatermark -Times 0
         }
     }
 
     It 'does not advance the watermark when issue creation throws' {
-        InModuleScope Ppdm2Jira -Parameters @{ settingsPath = $script:settingsPath } {
-            Mock New-Ppdm2JiraIssue { throw 'boom' }
-            Mock Set-Ppdm2JiraWatermark {}
-            $rc = Invoke-Ppdm2JiraSync -ConfigPath $settingsPath
+        InModuleScope ppdm2Jira -Parameters @{ settingsPath = $script:settingsPath } {
+            Mock New-ppdm2JiraIssue { throw 'boom' }
+            Mock Set-ppdm2JiraWatermark {}
+            $rc = Invoke-ppdm2JiraSync -ConfigPath $settingsPath
             $rc | Should -Be 1
-            Should -Invoke Set-Ppdm2JiraWatermark -Times 0
+            Should -Invoke Set-ppdm2JiraWatermark -Times 0
         }
     }
 }
 ```
 
-> Note: the first It uses the `-Parameters` form on `InModuleScope` (Pester 5.1+) to pass `$settingsPath`. Keep all three consistent — use `InModuleScope Ppdm2Jira -Parameters @{ settingsPath = $script:settingsPath } { ... }` and reference `$settingsPath` inside.
+> Note: the first It uses the `-Parameters` form on `InModuleScope` (Pester 5.1+) to pass `$settingsPath`. Keep all three consistent — use `InModuleScope ppdm2Jira -Parameters @{ settingsPath = $script:settingsPath } { ... }` and reference `$settingsPath` inside.
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pwsh -c "Invoke-Pester ./Ppdm2Jira/tests/Orchestrator.Tests.ps1"`
-Expected: FAIL — `Invoke-Ppdm2JiraSync` not defined.
+Run: `pwsh -c "Invoke-Pester ./ppdm2Jira/tests/Orchestrator.Tests.ps1"`
+Expected: FAIL — `Invoke-ppdm2JiraSync` not defined.
 
 - [ ] **Step 3: Write the implementation**
 
-`Ppdm2Jira/Public/Invoke-Ppdm2JiraSync.ps1`:
+`ppdm2Jira/Public/Invoke-ppdm2JiraSync.ps1`:
 ```powershell
 <#
 .SYNOPSIS
@@ -1305,17 +1305,17 @@ Expected: FAIL — `Invoke-Ppdm2JiraSync` not defined.
 #>
 Set-StrictMode -Version Latest
 
-function Connect-Ppdm2JiraInstance {
+function Connect-ppdm2JiraInstance {
     param([Parameter(Mandatory)] $Instance)
     if (-not (Get-Command Connect-PPDMapiEndpoint -ErrorAction SilentlyContinue)) {
         throw "PPDM-pwsh cmdlet 'Connect-PPDMapiEndpoint' not found. Install PPDM-pwsh first."
     }
-    $secret = Get-Ppdm2JiraSecret -Name $Instance.secretName
+    $secret = Get-ppdm2JiraSecret -Name $Instance.secretName
     $secure = ConvertTo-SecureString $secret -AsPlainText -Force
     Connect-PPDMapiEndpoint -PPDM_API_URI $Instance.baseUrl -Token $secure | Out-Null
 }
 
-function Write-Ppdm2JiraLog {
+function Write-ppdm2JiraLog {
     param(
         [Parameter(Mandatory)][string] $Instance,
         [Parameter(Mandatory)] $Incident,
@@ -1333,7 +1333,7 @@ function Write-Ppdm2JiraLog {
     return $line
 }
 
-function Invoke-Ppdm2JiraSync {
+function Invoke-ppdm2JiraSync {
     [CmdletBinding()]
     [OutputType([int])]
     param(
@@ -1344,52 +1344,52 @@ function Invoke-Ppdm2JiraSync {
 
     $settings = Import-PowerShellDataFile -Path $ConfigPath
     $routing  = Import-PowerShellDataFile -Path $settings.routingPath
-    $client   = New-Ppdm2JiraClient -Config $settings.jira
+    $client   = New-ppdm2JiraClient -Config $settings.jira
     $anyFailed = $false
 
     foreach ($inst in $settings.instances) {
         if ($Instance -and ($inst.id -notin $Instance)) { continue }
         try {
-            Connect-Ppdm2JiraInstance -Instance $inst
-            $wm = Get-Ppdm2JiraWatermark -InstanceId $inst.id -StateDir $settings.stateDir
+            Connect-ppdm2JiraInstance -Instance $inst
+            $wm = Get-ppdm2JiraWatermark -InstanceId $inst.id -StateDir $settings.stateDir
 
             $incidents = New-Object System.Collections.Generic.List[object]
-            foreach ($i in (Get-Ppdm2JiraAlerts -InstanceId $inst.id -Since $wm))        { $incidents.Add($i) }
-            foreach ($i in (Get-Ppdm2JiraFailedBackups -InstanceId $inst.id -Since $wm)) { $incidents.Add($i) }
+            foreach ($i in (Get-ppdm2JiraAlerts -InstanceId $inst.id -Since $wm))        { $incidents.Add($i) }
+            foreach ($i in (Get-ppdm2JiraFailedBackups -InstanceId $inst.id -Since $wm)) { $incidents.Add($i) }
 
             $maxOccurred = $wm
             foreach ($inc in $incidents) {
-                $target = Resolve-Ppdm2JiraTarget -Incident $inc -RoutingTable $routing
-                $action = Resolve-Ppdm2JiraAction -Client $client -Incident $inc -Target $target
+                $target = Resolve-ppdm2JiraTarget -Incident $inc -RoutingTable $routing
+                $action = Resolve-ppdm2JiraAction -Client $client -Incident $inc -Target $target
 
                 if ($DryRun) {
-                    Write-Ppdm2JiraLog -Instance $inst.id -Incident $inc -Action ('dryrun:' + $action.Action) -Key $action.Key | Out-Null
+                    Write-ppdm2JiraLog -Instance $inst.id -Incident $inc -Action ('dryrun:' + $action.Action) -Key $action.Key | Out-Null
                 }
                 elseif ($action.Action -eq 'Create') {
-                    $key = New-Ppdm2JiraIssue -Client $client -Target $target -Incident $inc
-                    $gid = ConvertTo-Ppdm2JiraLabel $inc.dedupKey
-                    $url = Get-Ppdm2JiraProp $inc.ppdmLinks 'deepLink'
-                    Set-Ppdm2JiraRemoteLink -Client $client -Key $key -GlobalId $gid -Url $url -Title ('PPDM {0} {1}' -f $inst.id, (Get-Ppdm2JiraProp $inc.ppdmLinks 'id')) | Out-Null
-                    Write-Ppdm2JiraLog -Instance $inst.id -Incident $inc -Action 'created' -Key $key | Out-Null
+                    $key = New-ppdm2JiraIssue -Client $client -Target $target -Incident $inc
+                    $gid = ConvertTo-ppdm2JiraLabel $inc.dedupKey
+                    $url = Get-ppdm2JiraProp $inc.ppdmLinks 'deepLink'
+                    Set-ppdm2JiraRemoteLink -Client $client -Key $key -GlobalId $gid -Url $url -Title ('PPDM {0} {1}' -f $inst.id, (Get-ppdm2JiraProp $inc.ppdmLinks 'id')) | Out-Null
+                    Write-ppdm2JiraLog -Instance $inst.id -Incident $inc -Action 'created' -Key $key | Out-Null
                 }
                 else {
                     $ts = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
-                    $commented = Add-Ppdm2JiraComment -Client $client -Key $action.Key -Text ("Recurred at $ts")
+                    $commented = Add-ppdm2JiraComment -Client $client -Key $action.Key -Text ("Recurred at $ts")
                     if (-not $commented) {
-                        $key = New-Ppdm2JiraIssue -Client $client -Target $target -Incident $inc
-                        Write-Ppdm2JiraLog -Instance $inst.id -Incident $inc -Action 'created(404-fallback)' -Key $key | Out-Null
+                        $key = New-ppdm2JiraIssue -Client $client -Target $target -Incident $inc
+                        Write-ppdm2JiraLog -Instance $inst.id -Incident $inc -Action 'created(404-fallback)' -Key $key | Out-Null
                     }
                     else {
-                        Write-Ppdm2JiraLog -Instance $inst.id -Incident $inc -Action 'commented' -Key $action.Key | Out-Null
+                        Write-ppdm2JiraLog -Instance $inst.id -Incident $inc -Action 'commented' -Key $action.Key | Out-Null
                     }
                 }
 
-                $occurred = Get-Ppdm2JiraProp $inc 'occurredAt'
+                $occurred = Get-ppdm2JiraProp $inc 'occurredAt'
                 if ($occurred -and $occurred -gt $maxOccurred) { $maxOccurred = $occurred }
             }
 
             if (-not $DryRun) {
-                Set-Ppdm2JiraWatermark -InstanceId $inst.id -Time $maxOccurred -StateDir $settings.stateDir
+                Set-ppdm2JiraWatermark -InstanceId $inst.id -Time $maxOccurred -StateDir $settings.stateDir
             }
         }
         catch {
@@ -1404,14 +1404,14 @@ function Invoke-Ppdm2JiraSync {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `pwsh -c "Invoke-Pester ./Ppdm2Jira/tests/Orchestrator.Tests.ps1"`
-Expected: PASS (3 tests). The module now exports `Invoke-Ppdm2JiraSync`.
+Run: `pwsh -c "Invoke-Pester ./ppdm2Jira/tests/Orchestrator.Tests.ps1"`
+Expected: PASS (3 tests). The module now exports `Invoke-ppdm2JiraSync`.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add Ppdm2Jira/Public/Invoke-Ppdm2JiraSync.ps1 Ppdm2Jira/tests/Orchestrator.Tests.ps1
-git commit -m "feat: add Invoke-Ppdm2JiraSync orchestrator"
+git add ppdm2Jira/Public/Invoke-ppdm2JiraSync.ps1 ppdm2Jira/tests/Orchestrator.Tests.ps1
+git commit -m "feat: add Invoke-ppdm2JiraSync orchestrator"
 ```
 
 ---
@@ -1419,7 +1419,7 @@ git commit -m "feat: add Invoke-Ppdm2JiraSync orchestrator"
 ## Task 10: Full-suite gate — ScriptAnalyzer + Semgrep
 
 **Files:**
-- Create: `Ppdm2Jira/tests/Run-AllTests.ps1`
+- Create: `ppdm2Jira/tests/Run-AllTests.ps1`
 
 **Interfaces:**
 - Consumes: every unit + test from Tasks 1–9.
@@ -1427,9 +1427,9 @@ git commit -m "feat: add Invoke-Ppdm2JiraSync orchestrator"
 
 - [ ] **Step 1: Write the suite runner**
 
-`Ppdm2Jira/tests/Run-AllTests.ps1`:
+`ppdm2Jira/tests/Run-AllTests.ps1`:
 ```powershell
-# Runs the full Pester suite for the Ppdm2Jira module.
+# Runs the full Pester suite for the ppdm2Jira module.
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $config = New-PesterConfiguration
 $config.Run.Path = $here
@@ -1439,22 +1439,22 @@ Invoke-Pester -Configuration $config
 
 - [ ] **Step 2: Run the whole suite**
 
-Run: `pwsh -c "./Ppdm2Jira/tests/Run-AllTests.ps1"`
+Run: `pwsh -c "./ppdm2Jira/tests/Run-AllTests.ps1"`
 Expected: PASS — all tests from Tasks 1–9 green (Module 2, Normalizer 8, PpdmClient 2, StateStore 3, Router 3, JiraClient 12, Dedup 2, Orchestrator 3).
 
 - [ ] **Step 3: Run PSScriptAnalyzer**
 
-Run: `pwsh -c "Invoke-ScriptAnalyzer -Path ./Ppdm2Jira -Recurse -Severity Warning,Error"`
+Run: `pwsh -c "Invoke-ScriptAnalyzer -Path ./ppdm2Jira -Recurse -Severity Warning,Error"`
 Expected: no Error-severity findings. Fix any (commonly: unapproved verbs, unused variables). If a finding is a deliberate exception, suppress it narrowly with `[Diagnostics.CodeAnalysis.SuppressMessageAttribute]` and a comment.
 
 - [ ] **Step 4: Semgrep security scan (project security rule)**
 
-Run the `semgrep` MCP `semgrep_scan` tool over `Ppdm2Jira/` (per the project security rule: scan generated code before delivery). Expected: no high-severity findings. Triage any (e.g. the TLS-callback opt-out in `Invoke-Ppdm2JiraHttp` is intentional and guarded by `-SkipTls` + a warning — document, don't silence blindly).
+Run the `semgrep` MCP `semgrep_scan` tool over `ppdm2Jira/` (per the project security rule: scan generated code before delivery). Expected: no high-severity findings. Triage any (e.g. the TLS-callback opt-out in `Invoke-ppdm2JiraHttp` is intentional and guarded by `-SkipTls` + a warning — document, don't silence blindly).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add Ppdm2Jira/tests/Run-AllTests.ps1
+git add ppdm2Jira/tests/Run-AllTests.ps1
 git commit -m "test: add full-suite runner; pass ScriptAnalyzer and Semgrep gates"
 ```
 
@@ -1484,11 +1484,11 @@ No gaps.
 **2. Placeholder scan:** No `TBD`/`TODO`/"add error handling" placeholders; every code step shows complete code.
 
 **3. Type consistency check:**
-- `Invoke-Ppdm2JiraHttp` returns `{StatusCode, Headers, Content}` — consumed consistently by `Invoke-Ppdm2JiraRequest` and all operation tests.
-- Client object shape `{baseUrl, apiBase, authMode, bodyFormat, authHeader, tlsValidate}` — produced by `New-Ppdm2JiraClient`, consumed by operations and orchestrator mocks (mocks set the subset each path reads).
-- `JiraTarget` `{project, issueType, component, assigneeGroup, priorityId, labels}` — produced by `Resolve-Ppdm2JiraTarget`, consumed by `New-Ppdm2JiraIssue` (`project, issueType, summary←Incident, labels, priorityId, component`). Consistent.
-- `Action` `{Action, Key}` — produced by `Resolve-Ppdm2JiraAction`, consumed by orchestrator. Consistent.
-- `ConvertTo-Ppdm2JiraLabel` used identically in Router, Dedup, orchestrator (`globalId`).
+- `Invoke-ppdm2JiraHttp` returns `{StatusCode, Headers, Content}` — consumed consistently by `Invoke-ppdm2JiraRequest` and all operation tests.
+- Client object shape `{baseUrl, apiBase, authMode, bodyFormat, authHeader, tlsValidate}` — produced by `New-ppdm2JiraClient`, consumed by operations and orchestrator mocks (mocks set the subset each path reads).
+- `JiraTarget` `{project, issueType, component, assigneeGroup, priorityId, labels}` — produced by `Resolve-ppdm2JiraTarget`, consumed by `New-ppdm2JiraIssue` (`project, issueType, summary←Incident, labels, priorityId, component`). Consistent.
+- `Action` `{Action, Key}` — produced by `Resolve-ppdm2JiraAction`, consumed by orchestrator. Consistent.
+- `ConvertTo-ppdm2JiraLabel` used identically in Router, Dedup, orchestrator (`globalId`).
 - Incident fields read (`dedupKey, source, severity, category, title, body, occurredAt, ppdmLinks.{id,deepLink}`) all exist on the Normalizer's output.
 
 No inconsistencies found.

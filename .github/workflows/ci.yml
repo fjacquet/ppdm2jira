@@ -33,14 +33,14 @@ jobs:
         run: |
           Import-Module Pester -MinimumVersion 5.5.0 -Force
           $cfg = New-PesterConfiguration
-          $cfg.Run.Path = './Ppdm2Jira/tests'
+          $cfg.Run.Path = './ppdm2Jira/tests'
           $cfg.Run.Exit = $true
           $cfg.Output.Verbosity = 'Detailed'
           Invoke-Pester -Configuration $cfg
 
       - name: Run PSScriptAnalyzer (fail on Error)
         run: |
-          $findings = @('./Ppdm2Jira', './scripts') | ForEach-Object {
+          $findings = @('./ppdm2Jira', './scripts', './Start-ppdm2Jira.ps1') | ForEach-Object {
             Invoke-ScriptAnalyzer -Path $_ -Recurse -Severity Error,Warning
           }
           if ($findings) { $findings | Format-Table -AutoSize | Out-String | Write-Host }

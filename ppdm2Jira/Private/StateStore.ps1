@@ -7,18 +7,18 @@
 #>
 Set-StrictMode -Version Latest
 
-function Get-Ppdm2JiraWatermarkPath {
+function Get-ppdm2JiraWatermarkPath {
     param([Parameter(Mandatory)][string] $InstanceId, [Parameter(Mandatory)][string] $StateDir)
     return (Join-Path $StateDir ("{0}.watermark.json" -f $InstanceId))
 }
 
-function Get-Ppdm2JiraWatermark {
+function Get-ppdm2JiraWatermark {
     [OutputType([datetime])]
     param(
         [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string] $InstanceId,
         [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string] $StateDir
     )
-    $path = Get-Ppdm2JiraWatermarkPath -InstanceId $InstanceId -StateDir $StateDir
+    $path = Get-ppdm2JiraWatermarkPath -InstanceId $InstanceId -StateDir $StateDir
     if (-not (Test-Path $path)) {
         return [datetime]::SpecifyKind([datetime]'1970-01-01T00:00:00', 'Utc')
     }
@@ -37,7 +37,7 @@ function Get-Ppdm2JiraWatermark {
     }
 }
 
-function Set-Ppdm2JiraWatermark {
+function Set-ppdm2JiraWatermark {
     # PSUseShouldProcessForStateChangingFunctions: writes an atomic watermark file as part
     # of the sync pipeline; the orchestrator's own -DryRun switch is the confirmation gate.
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
@@ -49,7 +49,7 @@ function Set-Ppdm2JiraWatermark {
     if (-not (Test-Path $StateDir)) {
         New-Item -ItemType Directory -Path $StateDir -Force | Out-Null
     }
-    $path = Get-Ppdm2JiraWatermarkPath -InstanceId $InstanceId -StateDir $StateDir
+    $path = Get-ppdm2JiraWatermarkPath -InstanceId $InstanceId -StateDir $StateDir
     $tmp  = "$path.tmp"
     $payload = [ordered]@{
         instanceId = $InstanceId

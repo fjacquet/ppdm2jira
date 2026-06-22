@@ -22,32 +22,32 @@ jobs:
         id: pkg
         shell: pwsh
         run: |
-          $version = (Import-PowerShellDataFile ./Ppdm2Jira/Ppdm2Jira.psd1).ModuleVersion
-          $stage = Join-Path $env:RUNNER_TEMP 'pkg/Ppdm2Jira'
+          $version = (Import-PowerShellDataFile ./ppdm2Jira/ppdm2Jira.psd1).ModuleVersion
+          $stage = Join-Path $env:RUNNER_TEMP 'pkg/ppdm2Jira'
           New-Item -ItemType Directory -Path $stage -Force | Out-Null
 
           # Module files only — drop tests and any macOS cruft; ship LICENSE + notices.
-          Copy-Item ./Ppdm2Jira/* -Destination $stage -Recurse -Force
+          Copy-Item ./ppdm2Jira/* -Destination $stage -Recurse -Force
           Remove-Item (Join-Path $stage 'tests') -Recurse -Force -ErrorAction SilentlyContinue
           Copy-Item ./LICENSE, ./THIRD_PARTY_NOTICES.md -Destination $stage
           Get-ChildItem -Path $stage -Recurse -Force -Filter '.DS_Store' | Remove-Item -Force -ErrorAction SilentlyContinue
 
           # Validate the staged module imports and exports the entry point.
-          Import-Module (Join-Path $stage 'Ppdm2Jira.psd1') -Force
-          if (-not (Get-Command Invoke-Ppdm2JiraSync -ErrorAction SilentlyContinue)) {
-            throw 'Package validation failed: Invoke-Ppdm2JiraSync not exported.'
+          Import-Module (Join-Path $stage 'ppdm2Jira.psd1') -Force
+          if (-not (Get-Command Invoke-ppdm2JiraSync -ErrorAction SilentlyContinue)) {
+            throw 'Package validation failed: Invoke-ppdm2JiraSync not exported.'
           }
-          Remove-Module Ppdm2Jira -Force
+          Remove-Module ppdm2Jira -Force
 
-          $zip = Join-Path $env:RUNNER_TEMP ("Ppdm2Jira-$version.zip")
+          $zip = Join-Path $env:RUNNER_TEMP ("ppdm2Jira-$version.zip")
           Compress-Archive -Path $stage -DestinationPath $zip -Force
           $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
-          "$hash  Ppdm2Jira-$version.zip" | Set-Content "$zip.sha256"
+          "$hash  ppdm2Jira-$version.zip" | Set-Content "$zip.sha256"
 
           "zip=$zip"          >> $env:GITHUB_OUTPUT
           "sha=$zip.sha256"   >> $env:GITHUB_OUTPUT
           "version=$version"  >> $env:GITHUB_OUTPUT
-          Write-Host "Built Ppdm2Jira-$version.zip ($hash)"
+          Write-Host "Built ppdm2Jira-$version.zip ($hash)"
 
       - name: Attach package to the release
         env:
@@ -58,4 +58,4 @@ jobs:
           VERSION: ${{ steps.pkg.outputs.version }}
         run: |
           gh release upload "$RELEASE_TAG" "$ZIP" "$SHA" --clobber
-          echo "Attached Ppdm2Jira-$VERSION.zip to $RELEASE_TAG"
+          echo "Attached ppdm2Jira-$VERSION.zip to $RELEASE_TAG"
