@@ -1,0 +1,11 @@
+{
+  "id": "act-12345",
+  "category": "PROTECT",
+  "subcategory": "FULL",
+  "state": "COMPLETED",
+  "result": { "status": "FAILED", "error": { "reason": "Mount failed", "detailedDescription": "VADP mount timed out", "remediation": "Check datastore" } },
+  "asset": { "name": "fileserver01", "id": "asset-9" },
+  "protectionPolicy": { "name": "Gold-Daily" },
+  "startTime": "2026-06-20T01:00:00Z",
+  "endTime": "2026-06-20T01:05:00Z"
+}

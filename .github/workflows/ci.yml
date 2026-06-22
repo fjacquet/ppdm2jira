@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: 'ubuntu / pwsh 7',     os: ubuntu-latest,  shell: pwsh }
+          - { name: 'windows / WinPS 5.1',  os: windows-latest, shell: powershell }
+          - { name: 'windows / pwsh 7',     os: windows-latest, shell: pwsh }
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install modules
+        run: |
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+          Install-Module Pester -MinimumVersion 5.5.0 -Force -SkipPublisherCheck
+          Install-Module PSScriptAnalyzer -Force
+
+      - name: Run Pester
+        run: |
+          Import-Module Pester -MinimumVersion 5.5.0 -Force
+          $cfg = New-PesterConfiguration
+          $cfg.Run.Path = './Ppdm2Jira/tests'
+          $cfg.Run.Exit = $true
+          $cfg.Output.Verbosity = 'Detailed'
+          Invoke-Pester -Configuration $cfg
+
+      - name: Run PSScriptAnalyzer (fail on Error)
+        run: |
+          $findings = @('./Ppdm2Jira', './scripts') | ForEach-Object {
+            Invoke-ScriptAnalyzer -Path $_ -Recurse -Severity Error,Warning
+          }
+          if ($findings) { $findings | Format-Table -AutoSize | Out-String | Write-Host }
+          if ($findings | Where-Object { $_.Severity -eq 'Error' }) {
+            throw "PSScriptAnalyzer reported Error-severity findings."
+          }
+          Write-Host "PSScriptAnalyzer: no Error-severity findings."

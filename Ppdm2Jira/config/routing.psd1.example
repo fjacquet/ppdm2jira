@@ -1,0 +1,29 @@
+@{
+    rules = @(
+        @{
+            match         = @{ source = 'activity'; severity = 'CRITICAL' }
+            project       = 'BKP'
+            issueType     = 'Incident'
+            component     = 'Backup Operations'
+            assigneeGroup = 'backup-team'
+            labels        = @('backup')
+            priority      = @{ CRITICAL = '1'; WARNING = '3' }
+        },
+        @{
+            match         = @{ source = 'alert' }
+            project       = 'OPS'
+            issueType     = 'Incident'
+            component     = 'Monitoring'
+            labels        = @()
+            priority      = @{ CRITICAL = '2'; WARNING = '3' }
+        }
+    )
+    # Mandatory fallback so nothing is ever dropped (FR-5).
+    default = @{
+        project   = 'OPS'
+        issueType = 'Task'
+        component = $null
+        labels    = @()
+        priority  = @{ CRITICAL = '2'; WARNING = '3' }
+    }
+}

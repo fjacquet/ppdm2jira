@@ -129,11 +129,13 @@ POST /rest/api/3/issue/{key}/remotelink
 | Condition | Handling |
 |---|---|
 | `201` create / `200` search | success; log `key` |
-| `400` field/screen validation | field not on the project's create screen → validated at setup via `createmeta`; fail the item, continue others |
+| `400` field/screen validation | field not on the project's create screen → validate at setup via `createmeta`. **As built:** a `400` (and any other unhandled `≥400`) fails the incident, which fails the whole instance run and does **not** advance its watermark — see ADR-0007. The failed window is re-read next run; dedup prevents duplicate tickets. |
 | `401` / `403` | auth/permission error → fail fast with a clear message; do **not** advance watermark |
 | `404` on comment/remotelink | issue deleted between search and write → fall back to create |
 | `429` rate limited | respect `Retry-After` header; exponential backoff (Cloud uses cost-based limiting) |
 | `5xx` | retry with backoff; if persistent, fail the run without advancing watermark (safe replay) |
+
+> **Failure granularity (ADR-0007).** Earlier drafts said `400` should "fail the item, continue others." The shipped orchestrator instead fails the **instance** on any unhandled incident error and leaves the watermark unadvanced, because skipping an item *and* advancing the watermark would silently drop that event (violating NFR-2). Per-instance isolation still holds: other instances continue.
 
 Constraints to enforce in `Normalizer`/`JiraClient`: `summary` ≤ 255 chars; labels contain no spaces/colons; `description`/comment bodies are valid ADF.
 
