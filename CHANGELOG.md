@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+- `docs/guide/quickstart.md` — progressive "dummies to black belt" tutorial (dry run → real tickets →
+  routing/dedup → scheduling → operations → Data Center/internals → extending & testing).
+
 ## [0.1.0] - 2026-06-22
 
 Initial implementation of the `Ppdm2Jira` PowerShell module.

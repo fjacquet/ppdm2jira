@@ -92,6 +92,7 @@ CI runs the suite + PSScriptAnalyzer on Ubuntu (pwsh 7) and Windows (Windows Pow
 
 ## Documentation
 
+- [Quickstart](docs/guide/quickstart.md) — progressive tutorial, from first dry run to extending the module
 - [PRD](docs/prd/PRD-ppdm-jira-integration.md) — problem, requirements, success metrics
 - [Design spec](docs/superpowers/specs/2026-06-17-ppdm-jira-integration-design.md) — architecture & data flow
 - [Jira integration contract](docs/design/jira-integration-contract.md) — endpoints, ADF, dedup, field mapping
