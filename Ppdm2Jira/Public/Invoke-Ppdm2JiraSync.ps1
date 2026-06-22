@@ -110,7 +110,10 @@ function Invoke-Ppdm2JiraSync {
         }
         catch {
             $anyFailed = $true
-            Write-Error ('[{0}] sync failed: {1}' -f $inst.id, $_.Exception.Message)
+            # -ErrorAction Continue keeps this a non-terminating log even when the caller runs with
+            # $ErrorActionPreference = 'Stop' (e.g. CI). Otherwise Write-Error would terminate and
+            # abort the per-instance loop, breaking isolation (FR-10).
+            Write-Error ('[{0}] sync failed: {1}' -f $inst.id, $_.Exception.Message) -ErrorAction Continue
         }
     }
 
