@@ -53,9 +53,11 @@ systems.
 ## Quick start
 
 ```powershell
-# 1. Clone and import
+# 1. Get the module — either clone the repo...
 git clone https://github.com/fjacquet/ppdm2jira.git
 Import-Module ./ppdm2jira/Ppdm2Jira/Ppdm2Jira.psd1
+#    ...or download Ppdm2Jira-<version>.zip from a Release, verify the .sha256, and Expand-Archive it
+#    (see the User Guide → Install).
 
 # 2. Create config from the templates
 Copy-Item ./ppdm2jira/Ppdm2Jira/config/settings.psd1.example ./settings.psd1
