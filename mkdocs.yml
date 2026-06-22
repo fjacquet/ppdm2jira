@@ -1,0 +1,67 @@
+site_name: Ppdm2Jira
+site_description: Poll Dell PowerProtect Data Manager for alerts and failed backups and open/update Jira issues.
+site_url: https://fjacquet.github.io/ppdm2jira/
+repo_url: https://github.com/fjacquet/ppdm2jira
+repo_name: fjacquet/ppdm2jira
+edit_uri: edit/main/docs/
+
+docs_dir: docs
+
+theme:
+  name: material
+  icon:
+    repo: fontawesome/brands/github
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.tracking
+    - content.code.copy
+    - search.highlight
+    - search.suggest
+
+markdown_extensions:
+  - admonition
+  - tables
+  - attr_list
+  - toc:
+      permalink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.inlinehilite
+
+nav:
+  - Home: index.md
+  - Quickstart: guide/quickstart.md
+  - User Guide: guide/user-guide.md
+  - Design:
+      - PRD: prd/PRD-ppdm-jira-integration.md
+      - Design spec: superpowers/specs/2026-06-17-ppdm-jira-integration-design.md
+      - Jira integration contract: design/jira-integration-contract.md
+  - Decisions (ADRs):
+      - Overview: adr/index.md
+      - ADR-0001 — Polling over push: adr/ADR-0001-polling-over-push.md
+      - ADR-0002 — PowerShell: adr/ADR-0002-implementation-language-powershell.md
+      - ADR-0003 — Idempotency watermark: adr/ADR-0003-idempotency-watermark-jira-search.md
+      - ADR-0004 — Config-driven routing: adr/ADR-0004-config-driven-routing.md
+      - ADR-0005 — One-way sync (v1): adr/ADR-0005-one-way-sync-v1.md
+      - ADR-0006 — Secrets & TLS: adr/ADR-0006-secret-management-and-tls.md
+      - ADR-0007 — Per-incident failure: adr/ADR-0007-per-incident-failure-fails-instance.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/fjacquet/ppdm2jira
