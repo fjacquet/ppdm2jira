@@ -46,6 +46,25 @@ The secret **names** above are what you reference in `settings.psd1` (`instances
 (e.g. `Set-SecretStoreConfiguration -Authentication None` on a suitably protected host, or use a
 cloud-backed vault).
 
+### Helper script (recommended)
+
+Instead of running `Set-Secret` by hand, use the bundled setup script — it reads your
+`settings.psd1`, figures out exactly which secret names are required (every PPDM instance plus Jira),
+and prompts securely for each. Values are read as `SecureString` and never materialized as plaintext.
+
+```powershell
+# First-time setup: register a default vault and prompt for each missing secret
+./scripts/Set-Ppdm2JiraSecrets.ps1 -ConfigPath ./config/settings.psd1 -RegisterVaultIfMissing
+
+# Preview what it would do, without prompting or writing
+./scripts/Set-Ppdm2JiraSecrets.ps1 -ConfigPath ./config/settings.psd1 -WhatIf
+
+# Rotate / overwrite existing secrets
+./scripts/Set-Ppdm2JiraSecrets.ps1 -ConfigPath ./config/settings.psd1 -Force
+```
+
+It is idempotent: existing secrets are skipped unless you pass `-Force`.
+
 ### What each secret holds
 
 | Secret (`secretName`) | Holds | Paired with | Used as |

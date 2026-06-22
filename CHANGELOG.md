@@ -28,6 +28,9 @@ Initial implementation of the `Ppdm2Jira` PowerShell module.
   external systems mocked.
 - CI (GitHub Actions: Pester + PSScriptAnalyzer on Ubuntu pwsh 7 and Windows PowerShell 5.1 / pwsh 7),
   `LICENSE` (MIT), `THIRD_PARTY_NOTICES`, README, and User Guide.
+- `scripts/Set-Ppdm2JiraSecrets.ps1` — interactive setup helper that derives the required secret
+  names from `settings.psd1` and registers/updates them in a SecretManagement vault (SecureString,
+  idempotent, `-WhatIf`/`-Force`).
 
 ### Notes
 - v1 is one-way (PPDM → Jira), scheduled, for 2–5 instances. No alert↔activity correlation, no

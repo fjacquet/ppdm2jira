@@ -57,14 +57,13 @@ systems.
 git clone https://github.com/fjacquet/ppdm2jira.git
 Import-Module ./ppdm2jira/Ppdm2Jira/Ppdm2Jira.psd1
 
-# 2. Register secrets in your vault (see the User Guide)
-Set-Secret -Name ppdm-prod1    -Secret '<ppdm-api-token>'
-Set-Secret -Name jira-api-token -Secret '<jira-api-token-or-PAT>'
-
-# 3. Create config from the templates
+# 2. Create config from the templates
 Copy-Item ./ppdm2jira/Ppdm2Jira/config/settings.psd1.example ./settings.psd1
 Copy-Item ./ppdm2jira/Ppdm2Jira/config/routing.psd1.example  ./routing.psd1
 #   ...edit baseUrl, instance ids, jira flavour, routing rules...
+
+# 3. Register the secrets named in settings.psd1 (prompts securely; no plaintext on disk)
+./ppdm2jira/scripts/Set-Ppdm2JiraSecrets.ps1 -ConfigPath ./settings.psd1 -RegisterVaultIfMissing
 
 # 4. Dry run (no Jira writes), then run for real
 Invoke-Ppdm2JiraSync -ConfigPath ./settings.psd1 -DryRun

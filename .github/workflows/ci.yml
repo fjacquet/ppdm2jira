@@ -40,7 +40,9 @@ jobs:
 
       - name: Run PSScriptAnalyzer (fail on Error)
         run: |
-          $findings = Invoke-ScriptAnalyzer -Path ./Ppdm2Jira -Recurse -Severity Error,Warning
+          $findings = @('./Ppdm2Jira', './scripts') | ForEach-Object {
+            Invoke-ScriptAnalyzer -Path $_ -Recurse -Severity Error,Warning
+          }
           if ($findings) { $findings | Format-Table -AutoSize | Out-String | Write-Host }
           if ($findings | Where-Object { $_.Severity -eq 'Error' }) {
             throw "PSScriptAnalyzer reported Error-severity findings."
