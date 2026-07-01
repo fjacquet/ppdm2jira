@@ -117,9 +117,9 @@ Full detail in **`docs/design/jira-integration-contract.md`** (grounded in `docs
 - **Traceability:** `POST /rest/api/3/issue/{key}/remotelink` with `globalId` = dedup key → idempotent deep-link back to the PPDM alert/activity.
 - **Auth abstraction:** Cloud (Basic `email:api_token`, v3, ADF) vs Data Center (Bearer PAT, v2, wiki) behind one `JiraClient` config.
 
-### Open validation items (M0 spike)
-- Confirm PPDM filter operator syntax (`eq`/`in`/`gt`) and timestamp format.
-- Confirm Jira flavour (Cloud v3 / ADF vs DC v2 / wiki) and `/search/jql` pagination token shape.
+### Open validation items (M0 spike) — status 2026-07-01
+- Jira flavour: ✅ **confirmed Data Center v2** (Bearer/wiki/`/rest/api/2`); pagination ✅ resolved (DC `startAt`, Cloud `nextPageToken`) — see the Jira contract §4/§10.
+- PPDM filter operator syntax (`eq`/`in`/`gt`/`ge`/`ne`) + timestamp: ⏳ **partially** — the v2 spec confirms the `filter` param is free-form "PowerProtect Data Manager filter syntax"; operators are adopted from the proven PPDM-pwsh filters. Full confirmation needs live PPDM — run `scripts/Test-ppdm2JiraPpdmConnection.ps1`.
 
 ## Error handling & resilience
 
@@ -146,8 +146,8 @@ Full detail in **`docs/design/jira-integration-contract.md`** (grounded in `docs
 
 PPDM write-back / acknowledgement (ADR-0005), MSP fleet scaling (ADR-0002 revisit), INFORMATIONAL alerts, non-Jira targets, real-time push.
 
-## Open items for M0 spike
+## Open items for M0 spike — status 2026-07-01
 
-1. Confirm PPDM filter operator syntax and date format against the PPDM REST API guide / sandbox.
-2. Confirm Jira deployment (Cloud vs Data Center) and corresponding auth.
-3. Confirm whether the same failure can appear in **both** alerts and activities, and whether to correlate on `jobId` to avoid two tickets for one failure.
+1. PPDM filter operator syntax + date format — ⏳ partially confirmed (see above); live confirmation via `scripts/Test-ppdm2JiraPpdmConnection.ps1`.
+2. Jira deployment + auth — ✅ **confirmed Data Center v2** (Bearer PAT, `/rest/api/2`, wiki body).
+3. Same failure appearing as **both** alert and activity → ✅ **handled**: correlate on `jobId` to open one ticket (`Merge-ppdm2JiraCorrelatedIncidents` + `ppdm_job_<instanceId>_<jobId>` label). Confirm real-world overlap on the live smoke test.

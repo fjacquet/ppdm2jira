@@ -72,6 +72,8 @@ function Invoke-ppdm2JiraSync {
             $incidents = New-Object System.Collections.Generic.List[object]
             foreach ($i in (Get-ppdm2JiraAlerts -InstanceId $inst.id -Since $wm))        { $incidents.Add($i) }
             foreach ($i in (Get-ppdm2JiraFailedBackups -InstanceId $inst.id -Since $wm)) { $incidents.Add($i) }
+            # Collapse an alert + activity that describe the same failure (shared jobId) into one ticket.
+            $incidents = Merge-ppdm2JiraCorrelatedIncidents -Incidents $incidents
 
             $maxOccurred = $wm
             foreach ($inc in $incidents) {

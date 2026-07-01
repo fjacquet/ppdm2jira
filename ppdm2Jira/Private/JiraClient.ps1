@@ -153,9 +153,17 @@ function Find-ppdm2JiraOpenIssue {
     param(
         [Parameter(Mandatory)] $Client,
         [Parameter(Mandatory)][string] $Project,
-        [Parameter(Mandatory)][string] $Label
+        [Parameter(Mandatory)][string] $Label,
+        [string] $CorrelationLabel
     )
-    $jql = 'project = "{0}" AND labels = "{1}" AND statusCategory != Done ORDER BY created DESC' -f $Project, $Label
+    # Match the per-event dedup label, or (when correlating) either it or the jobId label.
+    $labelClause = if ($CorrelationLabel) {
+        'labels in ("{0}", "{1}")' -f $Label, $CorrelationLabel
+    }
+    else {
+        'labels = "{0}"' -f $Label
+    }
+    $jql = 'project = "{0}" AND {1} AND statusCategory != Done ORDER BY created DESC' -f $Project, $labelClause
     if ($Client.apiBase -like '*api/3') {
         $body = @{ jql = $jql; fields = @('key', 'status'); maxResults = 1 }
         $res  = Invoke-ppdm2JiraRequest -Client $Client -Method POST -Path '/search/jql' -Body $body
@@ -230,7 +238,14 @@ function Set-ppdm2JiraRemoteLink {
     )
     $obj = @{ title = $Title }
     if ($Url) { $obj.url = $Url }
-    $body = @{ globalId = $GlobalId; object = $obj }
+    # Jira Data Center marks application + relationship as required on remotelink; both are optional on
+    # Cloud, so sending them is safe for either flavour and avoids a 400 on DC (verified via context7).
+    $body = @{
+        globalId     = $GlobalId
+        application  = @{ name = 'PowerProtect Data Manager'; type = 'com.dell.ppdm' }
+        relationship = 'caused by'
+        object       = $obj
+    }
     $res = Invoke-ppdm2JiraRequest -Client $Client -Method POST -Path ('/issue/{0}/remotelink' -f $Key) -Body $body
     return ($res.StatusCode -lt 400)
 }

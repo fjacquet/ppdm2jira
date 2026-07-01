@@ -14,6 +14,21 @@ function ConvertTo-ppdm2JiraLabel {
     return ($DedupKey -replace '[:\s]', '_')
 }
 
+function Get-ppdm2JiraCorrelationLabel {
+    # Cross-source correlation label. The same failure surfacing as BOTH an alert and an activity
+    # shares a jobId (Normalizer: an activity's jobId is its own id; an alert's jobId points at that
+    # activity). Tagging both events with this label lets the dedup search find the sibling issue so a
+    # single failure yields a single ticket (ADR-0003 extension / M0 open item #3). Returns $null when
+    # the incident has no jobId -- there is then nothing to correlate on, so it is never merged.
+    [OutputType([string])]
+    param([Parameter(Mandatory)] $Incident)
+    $links = Get-ppdm2JiraProp $Incident 'ppdmLinks'
+    $jobId = Get-ppdm2JiraProp $links 'jobId'
+    if ([string]::IsNullOrWhiteSpace([string]$jobId)) { return $null }
+    $instanceId = [string](Get-ppdm2JiraProp $Incident 'instanceId')
+    return ConvertTo-ppdm2JiraLabel ('ppdm:job:{0}:{1}' -f $instanceId, ([string]$jobId).Trim())
+}
+
 function Test-ppdm2JiraRoutingRule {
     param([Parameter(Mandatory)] $Rule, [Parameter(Mandatory)] $Incident)
     if (-not $Rule.ContainsKey('match') -or $null -eq $Rule.match) { return $false }
@@ -56,6 +71,8 @@ function Resolve-ppdm2JiraTarget {
     $category = Get-ppdm2JiraProp $Incident 'category'
     if ($category) { $labels.Add(('cat_{0}' -f ($category.ToString().ToLower() -replace '[:\s]', '_'))) }
     if ($match.ContainsKey('labels') -and $match.labels) { foreach ($l in $match.labels) { $labels.Add([string]$l) } }
+    $corrLabel = Get-ppdm2JiraCorrelationLabel -Incident $Incident
+    if ($corrLabel) { $labels.Add($corrLabel) }   # jobId correlation: created issue is findable by its sibling
 
     $priorityId = $null
     if ($match.ContainsKey('priority') -and $match.priority -and $match.priority.ContainsKey($Incident.severity)) {

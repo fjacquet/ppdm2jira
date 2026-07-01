@@ -1,6 +1,12 @@
 # OS
 .DS_Store
 
+# Editors
+.vscode/
+
+# Generated docs (Markdown is source; .docx are build output — see CLAUDE.md)
+docs/docx/
+
 # Secrets & local config (never commit credentials)
 *.secret
 *.secret.*

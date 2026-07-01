@@ -81,10 +81,13 @@ Its fields are defined in the design spec §"The Incident model" and emitted by
 There is no build system. Code is a PowerShell module; docs are Markdown with generated `.docx`
 mirrors in `docs/docx/` (treat the Markdown as source, the `.docx` as build output).
 
-- **Run tests** (once Pester tests exist under `tests/`): `Invoke-Pester ./tests`
-  — run a single file/test with `Invoke-Pester ./tests/Normalizer.Tests.ps1` or
-  `Invoke-Pester ./tests -FullNameFilter '*dedup key*'`. No live PPDM/Jira is needed: mock the
-  `PPDM-pwsh` cmdlets and Jira HTTP calls.
+- **Run tests** (Pester tests live under `ppdm2Jira/tests/`): `pwsh ./ppdm2Jira/tests/Run-AllTests.ps1`
+  (or `Invoke-Pester ./ppdm2Jira/tests`) — run a single file with
+  `Invoke-Pester ./ppdm2Jira/tests/Normalizer.Tests.ps1` or filter with
+  `Invoke-Pester ./ppdm2Jira/tests -FullNameFilter '*dedup key*'`. No live PPDM/Jira is needed: mock the
+  `PPDM-pwsh` cmdlets and Jira HTTP calls. Private functions are reached in tests via `InModuleScope ppdm2Jira`.
+- **Validate live connectivity** (needs a sandbox + registered secrets): `scripts/Test-ppdm2JiraPpdmConnection.ps1`
+  and `scripts/Test-ppdm2JiraJiraConnection.ps1` connect and run a real search against PPDM / Jira DC v2.
 - **Lint**: `Invoke-ScriptAnalyzer -Path ./ppdm2Jira -Recurse`.
 - **Security scan before delivering generated code**: run Semgrep (the global instruction requires
   scanning generated code/commands via the `semgrep` MCP tools).
