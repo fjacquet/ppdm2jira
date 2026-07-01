@@ -1,0 +1,23 @@
+# BulkIssueResults
+## Properties
+
+Name | Type | Description | Notes
+------------ | ------------- | ------------- | -------------
+**IssueErrors** | [**IssueError[]**](IssueError.md) | When Jira can&#39;t return an issue enumerated in a request due to a retriable error or payload constraint, we&#39;ll return the respective issue ID with a corresponding error message. This list is empty when there are no errors Issues which aren&#39;t found or that the user doesn&#39;t have permission to view won&#39;t be returned in this list. | [optional] [readonly] 
+**Issues** | [**IssueBean[]**](IssueBean.md) | The list of issues. | [optional] [readonly] 
+
+## Examples
+
+- Prepare the resource
+```powershell
+$BulkIssueResults = Initialize-JiraApiReferenceBulkIssueResults  -IssueErrors null `
+ -Issues null
+```
+
+- Convert the resource to JSON
+```powershell
+$BulkIssueResults | ConvertTo-JSON
+```
+
+[[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
+

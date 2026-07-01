@@ -1,0 +1,35 @@
+# TargetToSourcesMapping
+## Properties
+
+Name | Type | Description | Notes
+------------ | ------------- | ------------- | -------------
+**InferClassificationDefaults** | **Boolean** | If &#x60;true&#x60;, when issues are moved into this target group, they will adopt the target project&#39;s default classification, if they don&#39;t have a classification already. If they do have a classification, it will be kept the same even after the move. Leave &#x60;targetClassification&#x60; empty when using this.  If &#x60;false&#x60;, you must provide a &#x60;targetClassification&#x60; mapping for each classification associated with the selected issues.  [Benefit from data classification](https://support.atlassian.com/security-and-access-policies/docs/what-is-data-classification/) | 
+**InferFieldDefaults** | **Boolean** | If &#x60;true&#x60;, values from the source issues will be retained for the mandatory fields in the field configuration of the destination project. The &#x60;targetMandatoryFields&#x60; property shouldn&#39;t be defined.  If &#x60;false&#x60;, the user is required to set values for mandatory fields present in the field configuration of the destination project. Provide input by defining the &#x60;targetMandatoryFields&#x60; property | 
+**InferStatusDefaults** | **Boolean** | If &#x60;true&#x60;, the statuses of issues being moved in this target group that are not present in the target workflow will be changed to the default status of the target workflow (see below). Leave &#x60;targetStatus&#x60; empty when using this.  If &#x60;false&#x60;, you must provide a &#x60;targetStatus&#x60; for each status not present in the target workflow.  The default status in a workflow is referred to as the &quot;&quot;initial status&quot;&quot;. Each workflow has its own unique initial status. When an issue is created, it is automatically assigned to this initial status. Read more about configuring initial statuses: [Configure the initial status | Atlassian Support.](https://support.atlassian.com/jira-cloud-administration/docs/configure-the-initial-status/) | 
+**InferSubtaskTypeDefault** | **Boolean** | When an issue is moved, its subtasks (if there are any) need to be moved with it. &#x60;inferSubtaskTypeDefault&#x60; helps with moving the subtasks by picking a random subtask type in the target project.  If &#x60;true&#x60;, subtasks will automatically move to the same project as their parent.  When they move:   *  Their &#x60;issueType&#x60; will be set to the default for subtasks in the target project.  *  Values for mandatory fields will be retained from the source issues  *  Specifying separate mapping for implicit subtasks won’t be allowed.  If &#x60;false&#x60;, you must manually move the subtasks. They will retain the parent which they had in the current project after being moved. | 
+**IssueIdsOrKeys** | **String[]** | List of issue IDs or keys to be moved. | [optional] 
+**TargetClassification** | [**TargetClassification[]**](TargetClassification.md) | List of the objects containing classifications in the source issues and their new values which need to be set during the bulk move operation.  It is mandatory to provide source classification to target classification mapping when the source classification is invalid for the target project and issue type.   *  **You should only define this property when &#x60;inferClassificationDefaults&#x60; is &#x60;false&#x60;.**  *  **In order to provide mapping for issues which don&#39;t have a classification, use &#x60;&quot;&quot;-1&quot;&quot;&#x60;.** | [optional] 
+**TargetMandatoryFields** | [**TargetMandatoryFields[]**](TargetMandatoryFields.md) | List of objects containing mandatory fields in the target field configuration and new values that need to be set during the bulk move operation.  The new values will only be applied if the field is mandatory in the target project and at least one issue from the source has that field empty, or if the field context is different in the target project (e.g. project-scoped version fields).  **You should only define this property when &#x60;inferFieldDefaults&#x60; is &#x60;false&#x60;.** | [optional] 
+**TargetStatus** | [**TargetStatus[]**](TargetStatus.md) | List of the objects containing statuses in the source workflow and their new values which need to be set during the bulk move operation.  The new values will only be applied if the source status is invalid for the target project and issue type.  It is mandatory to provide source status to target status mapping when the source status is invalid for the target project and issue type.  **You should only define this property when &#x60;inferStatusDefaults&#x60; is &#x60;false&#x60;.** | [optional] 
+
+## Examples
+
+- Prepare the resource
+```powershell
+$TargetToSourcesMapping = Initialize-JiraApiReferenceTargetToSourcesMapping  -InferClassificationDefaults null `
+ -InferFieldDefaults null `
+ -InferStatusDefaults null `
+ -InferSubtaskTypeDefault null `
+ -IssueIdsOrKeys null `
+ -TargetClassification null `
+ -TargetMandatoryFields null `
+ -TargetStatus null
+```
+
+- Convert the resource to JSON
+```powershell
+$TargetToSourcesMapping | ConvertTo-JSON
+```
+
+[[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
+

@@ -1,0 +1,23 @@
+# ServiceLevelObjectives
+## Properties
+
+Name | Type | Description | Notes
+------------ | ------------- | ------------- | -------------
+**Content** | [**ServiceLevelObjective[]**](ServiceLevelObjective.md) |  | [optional] 
+**Page** | [**PageInfo**](PageInfo.md) |  | [optional] 
+
+## Examples
+
+- Prepare the resource
+```powershell
+$ServiceLevelObjectives = Initialize-PpdmApiReferenceServiceLevelObjectives  -Content null `
+ -Page null
+```
+
+- Convert the resource to JSON
+```powershell
+$ServiceLevelObjectives | ConvertTo-JSON
+```
+
+[[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
+
