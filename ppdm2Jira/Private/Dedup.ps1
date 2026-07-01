@@ -53,6 +53,15 @@ function Merge-ppdm2JiraCorrelatedIncidents {
             $primary.body = $existing + [Environment]::NewLine +
                 ('Correlated PPDM events (same job, one ticket): {0}' -f ($droppedKeys -join ', '))
         }
+        # Carry the newest occurredAt across the correlated set. The orchestrator advances the watermark
+        # to the max occurredAt of the (merged) incidents, so if a dropped sibling occurred later than
+        # the primary, the watermark would lag and re-read the pair next run.
+        $maxOcc = Get-ppdm2JiraProp $primary 'occurredAt'
+        foreach ($m in $members) {
+            $o = Get-ppdm2JiraProp $m 'occurredAt'
+            if ($o -and (-not $maxOcc -or $o -gt $maxOcc)) { $maxOcc = $o }
+        }
+        if ($maxOcc) { $primary.occurredAt = $maxOcc }
         $result.Add($primary)
     }
     # Return a plain array (comma-wrapped so a single/empty result doesn't unroll to a scalar/$null).

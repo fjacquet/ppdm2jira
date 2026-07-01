@@ -66,6 +66,16 @@ Describe 'Merge-ppdm2JiraCorrelatedIncidents' {
             $merged[0].body   | Should -BeLike '*ppdm:prod1:al-3*'   # dropped event recorded for traceability
         }
     }
+    It 'carries the latest occurredAt across the correlated set (watermark must not lag)' {
+        InModuleScope ppdm2Jira {
+            $activity = [pscustomobject]@{ source='activity'; instanceId='prod1'; dedupKey='ppdm:prod1:act-7'; body='act'; occurredAt=([datetime]'2026-06-21T00:00:00Z'); ppdmLinks=[pscustomobject]@{ jobId='act-7' } }
+            $alert    = [pscustomobject]@{ source='alert';    instanceId='prod1'; dedupKey='ppdm:prod1:al-3';  body='alr'; occurredAt=([datetime]'2026-06-21T02:30:00Z'); ppdmLinks=[pscustomobject]@{ jobId='act-7' } }
+            $merged = Merge-ppdm2JiraCorrelatedIncidents -Incidents @($activity, $alert)
+            $merged.Count        | Should -Be 1
+            $merged[0].source    | Should -Be 'activity'                       # activity stays primary
+            $merged[0].occurredAt | Should -Be ([datetime]'2026-06-21T02:30:00Z')  # but takes the alert's later time
+        }
+    }
     It 'keeps incidents with different jobIds separate' {
         InModuleScope ppdm2Jira {
             $a = [pscustomobject]@{ source='activity'; instanceId='prod1'; dedupKey='ppdm:prod1:act-1'; body='a'; ppdmLinks=[pscustomobject]@{ jobId='act-1' } }
