@@ -4,6 +4,22 @@ Generated PowerShell clients used to **validate** that `PpdmClient.ps1` and `Jir
 map fields and endpoints against the real PPDM and Jira APIs. These are a reference artifact, not part
 of the shipped module — nothing here is built, imported, or depended on by `ppdm2Jira/*`.
 
+## Evaluated as the runtime — rejected (2026-07-01)
+
+We seriously evaluated replacing the hand-written clients with these generated ones and decided against it:
+
+- **`jira-v3-powershell` cannot target the confirmed deployment.** It hardcodes `/rest/api/3` and wires
+  **only HTTP Basic** (the `AccessToken` field is never used), so it has no path to **Jira Data Center v2**
+  (Bearer, `/rest/api/2`) — the shipped target. It also has no retry/`Retry-After`/429 handling, requires
+  PowerShell 6.2+ (project targets **5.1**), needs a `Build.ps1` step, and exports ~2,524 cmdlets.
+- **You would still hand-write everything that matters.** ADF/wiki bodies, the Cloud/DC auth abstraction,
+  retry, and error classification — i.e. exactly what `JiraClient.ps1` (237 lines, 4 ops) already is.
+- **`ppdm-v2-powershell`** supports the `-Filter` DSL but has no login, manual `QueryState` paging, PS 6.2+,
+  and a build step — trading the maintained `PPDM-pwsh` (which owns token lifecycle) for more code we own.
+
+The generated clients already delivered their real value here: as the **spec oracle** that verified the
+custom code. Keep them for that; don't ship them.
+
 | Client (browse in repo) | Source spec | Generator |
 |---|---|---|
 | `docs/swagger/generated/ppdm-v2-powershell/` | [`9765-20.1.0.json`](../9765-20.1.0.json) (PowerProtect Data Manager API **v2**) | `openapi-generator` 7.23.0, `-g powershell` |

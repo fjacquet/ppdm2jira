@@ -3,22 +3,24 @@
 | | |
 |---|---|
 | Status | Draft for customer review |
-| Date | 2026-06-17 |
-| Source of truth | `docs/swagger/jira-swagger-v3.json` (Jira Cloud Platform REST API v3) |
+| Date | 2026-06-17 (target confirmed Data Center v2, 2026-07-01) |
+| Primary target | **Jira Data Center v2** (`/rest/api/2`, Bearer PAT, wiki body) |
+| Source of truth | Cloud: `docs/swagger/jira-swagger-v3.json`; DC v2 validated against Atlassian Server/DC REST docs (context7 `/websites/developer_atlassian_server_jira_platform_rest_v11003`) |
 | Consumed by | `JiraClient` unit (see master design spec) |
 
-This document specifies exactly how the integration talks to Jira: auth, endpoints, payloads, deduplication, traceability, field mapping, and error handling. It is grounded in the provided v3 OpenAPI spec.
+This document specifies exactly how the integration talks to Jira: auth, endpoints, payloads, deduplication, traceability, field mapping, and error handling. The **confirmed deployment is Jira Data Center v2**; the `JiraClient` also supports Cloud v3 and the DC/Cloud differences are called out throughout. DC claims are grounded in the Atlassian Server/DC REST reference; Cloud claims in the local v3 OpenAPI spec.
 
 ## 1. Target & auth
 
-The provided spec is **Jira Cloud Platform REST API v3** (`/rest/api/3/...`). The `JiraClient` abstracts auth and body-format so the same logic runs against Cloud or Data Center.
+The confirmed target is **Jira Data Center v2** (`/rest/api/2/...`). The `JiraClient` abstracts auth and body-format so the same logic also runs against Cloud v3. The primary column below is the shipped path.
 
-| | Jira Cloud (v3, this spec) | Jira Data Center / Server (v2) |
+| | **Jira Data Center v2 (primary)** | Jira Cloud v3 (also supported) |
 |---|---|---|
-| Base path | `/rest/api/3` | `/rest/api/2` |
-| Auth | **Basic**: `email:api_token`, base64 → `Authorization: Basic …` (or OAuth2 3LO) | **PAT**: `Authorization: Bearer <token>` |
-| Text fields (`description`, comment `body`) | **ADF** (Atlassian Document Format — JSON) | Wiki markup / plain string |
-| Search | `POST /rest/api/3/search/jql` | `GET/POST /rest/api/2/search` |
+| Base path | `/rest/api/2` | `/rest/api/3` |
+| Auth | **PAT**: `Authorization: Bearer <token>` | **Basic**: `email:api_token`, base64 → `Authorization: Basic …` |
+| Text fields (`description`, comment `body`) | Wiki markup / plain string | **ADF** (Atlassian Document Format — JSON) |
+| Search | `POST /rest/api/2/search` (`startAt` paging) | `POST /rest/api/3/search/jql` (`nextPageToken` paging) |
+| Config | `apiVersion=2, authMode=bearer, bodyFormat=wiki` | `apiVersion=3, authMode=basic, bodyFormat=adf` |
 
 > **Recommendation:** use a dedicated **service account + API token** (not a person's). Token is created at `id.atlassian.com`. The token is retrieved from the secret store at runtime (ADR-0006), never stored in config.
 
@@ -84,7 +86,17 @@ POST /rest/api/3/search/jql
 - `issues.length > 0` → **comment** on `issues[0].key` (recurrence) — do **not** create.
 - else → **create** (§3).
 
-> **Verification item (M0):** the enhanced `/search/jql` endpoint paginates with a **`nextPageToken`** (token-based), not `startAt`. Confirm pagination shape against current Atlassian docs; the dedup query needs only `maxResults: 1` so paging is moot here, but list operations must handle the token.
+On **Data Center v2** the dedup search is `POST /rest/api/2/search` with `{jql, fields, maxResults, startAt}` (offset paging). The `JiraClient` sends both flavours' correct shape:
+
+```json
+POST /rest/api/2/search        // Data Center v2 (primary)
+{ "jql": "project = \"OPS\" AND labels = \"ppdm_prod1_a1b2c3d4\" AND statusCategory != Done ORDER BY created DESC",
+  "fields": ["key", "status"], "maxResults": 1, "startAt": 0 }
+```
+
+> **M0 pagination — RESOLVED.** DC v2 `/rest/api/2/search` uses offset **`startAt`** (verified via context7); Cloud v3 `/rest/api/3/search/jql` uses token **`nextPageToken`** (verified in the local v3 spec: `SearchAndReconcileRequestBean` has `nextPageToken`, no `startAt`). The dedup query uses `maxResults: 1` so paging is moot; the `JiraClient` branches correctly on `apiBase`.
+
+> **Cross-source correlation.** When a failure surfaces as **both** an alert and an activity (shared `jobId`), the pipeline collapses them so a single failure yields a single ticket. In addition to the per-event dedup label, the created issue carries a `ppdm_job_<instanceId>_<jobId>` label and the dedup search matches **either** label (`labels in (...)`), so a sibling event arriving in a later pass comments instead of duplicating. See `Merge-ppdm2JiraCorrelatedIncidents` / `Get-ppdm2JiraCorrelationLabel` (ADR-0003 extension).
 
 ## 5. Recurrence comment — payload
 
@@ -98,16 +110,17 @@ POST /rest/api/3/search/jql
 
 ## 6. Traceability back-link — remote link
 
-To satisfy the PRD traceability goal, attach a remote link pointing at the PPDM alert/activity. Setting `globalId` to the dedup key makes it **idempotent** (create-or-update), so re-runs don't pile up links:
+To satisfy the PRD traceability goal, attach a remote link pointing at the PPDM alert/activity. Setting `globalId` to the dedup key makes it **idempotent** (create-or-update), so re-runs don't pile up links. On **Data Center v2** the endpoint requires `application` and `relationship` (both optional on Cloud), so the `JiraClient` always sends them — DC-safe and harmless on Cloud (verified via context7):
 
 ```json
-POST /rest/api/3/issue/{key}/remotelink
+POST /rest/api/2/issue/{key}/remotelink        // DC v2 primary; /rest/api/3/... on Cloud
 {
   "globalId": "ppdm_prod1_a1b2c3d4",
+  "application":  { "name": "PowerProtect Data Manager", "type": "com.dell.ppdm" },
+  "relationship": "caused by",
   "object": {
     "url":   "https://prod1.ppdm.example/#/administration/alerts?id=a1b2c3d4",
-    "title": "PPDM prod1 — Alert a1b2c3d4",
-    "icon":  { "url16x16": "https://prod1.ppdm.example/favicon.ico", "title": "PPDM" }
+    "title": "PPDM prod1 — Alert a1b2c3d4"
   }
 }
 ```
@@ -147,8 +160,14 @@ Constraints to enforce in `Normalizer`/`JiraClient`: `summary` ≤ 255 chars; la
 4. Priority scheme IDs resolved (`GET /priority/search`) and mapped in config.
 5. `GET /myself` succeeds (auth valid); `createmeta` confirms required fields are on the create screen.
 
-## 10. Open verification items (M0 spike)
+## 10. Verification items (M0 spike)
 
-- Confirm Jira deployment flavour: **Cloud (v3, ADF)** vs **Data Center (v2, wiki)** — drives `JiraClient` config.
-- Confirm `/search/jql` pagination token shape.
-- Confirm whether a dedicated **custom field** for the PPDM event ID is preferred over a label (custom field is also JQL-searchable but needs a Jira admin to create it; label needs nothing).
+| Item | Status |
+|---|---|
+| Jira deployment flavour (Cloud v3 vs DC v2) | ✅ **Resolved** — confirmed **Data Center v2** (config: `apiVersion=2, authMode=bearer, bodyFormat=wiki`). |
+| Search verb + pagination shape | ✅ **Resolved (offline)** — DC v2 `POST /rest/api/2/search` + `startAt`; Cloud v3 `POST /rest/api/3/search/jql` + `nextPageToken`. Verified via context7 (DC) and the local v3 spec (Cloud). Dedup uses `maxResults:1`. |
+| Remote-link required fields on DC | ✅ **Resolved** — DC requires `application` + `relationship`; `JiraClient` now always sends them (§6). |
+| Alert/activity double-reporting (same failure → two tickets) | ✅ **Resolved (in code)** — `jobId` correlation collapses within a pass and matches the sibling issue across passes (§4). Confirm real-world overlap on the live smoke test. |
+| Custom field vs label for the PPDM event ID | ↩ **Deferred** — labels ship by default (no Jira admin needed); revisit only if a customer standard requires a custom field. |
+
+Remaining live confirmations (need a sandbox — see the connection validators `scripts/Test-ppdm2Jira*Connection.ps1` and the `-DryRun` smoke test): live PPDM accepts the filter string, DC `/search` + wiki create/comment/remotelink behave as coded, and no double-tickets appear on real data.

@@ -6,6 +6,33 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-01
+
+### Added
+- **Alert↔activity correlation on `jobId`.** A single failure that surfaces as **both** an alert and an
+  activity now opens **one** ticket instead of two. `Merge-ppdm2JiraCorrelatedIncidents` collapses
+  siblings within a run (activity-primary; the alert's dedup key is folded into the issue body for
+  traceability), and a `ppdm_job_<instanceId>_<jobId>` label plus a `labels in (...)` dedup search
+  handle the cross-run / watermark-straddle case. This reverses the v0.1.0 "no alert↔activity
+  correlation" limitation (ADR-0003 extension).
+- **Connection validators** `scripts/Test-ppdm2JiraPpdmConnection.ps1` and
+  `scripts/Test-ppdm2JiraJiraConnection.ps1` — read-only smoke tests that connect and run a real search
+  (PPDM filter / Jira `GET /myself` + JQL) reusing the production code paths; exit 0/1 for schedulers/CI.
+- Behavioural tests for previously-untested paths: `429` + `Retry-After` (honour and give-up),
+  orchestrator 404-comment→create fallback, the jobId correlation, the double-reporting single-ticket
+  regression, and a Data-Center-safe remote-link payload. Suite grew 39 → 51; line coverage ~88%.
+
+### Changed
+- Confirmed the deployment target is **Jira Data Center v2** (Bearer PAT / `/rest/api/2` / wiki). The
+  Jira integration contract, design spec, and `config/settings.psd1.example` now treat DC v2 as the
+  primary path and Cloud v3 as the supported alternative. Documented that the OpenAPI-generated
+  PowerShell clients were evaluated as a runtime and **rejected** (kept only as the spec oracle).
+
+### Fixed
+- `Set-ppdm2JiraRemoteLink` now sends `application` and `relationship`, which Jira Data Center marks as
+  **required** on remote links (both optional on Cloud), avoiding a `400` on DC. Verified against the
+  Atlassian Server/DC REST reference.
+
 ## [0.2.0] - 2026-06-22
 
 ### Changed
@@ -58,7 +85,8 @@ Initial implementation of the `ppdm2Jira` PowerShell module.
 - v1 is one-way (PPDM → Jira), scheduled, for 2–5 instances. No alert↔activity correlation, no
   write-back. See the ADRs for rationale.
 
-[Unreleased]: https://github.com/fjacquet/ppdm2jira/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/fjacquet/ppdm2jira/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/fjacquet/ppdm2jira/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/fjacquet/ppdm2jira/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/fjacquet/ppdm2jira/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/fjacquet/ppdm2jira/releases/tag/v0.1.0

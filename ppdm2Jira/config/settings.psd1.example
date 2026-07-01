@@ -4,12 +4,13 @@
     instances   = @(
         @{ id = 'prod1'; baseUrl = 'https://prod1.ppdm.example/api/v2'; secretName = 'ppdm-prod1' }
     )
+    # Confirmed target: Jira Data Center v2 (Bearer PAT / wiki). See docs/design/jira-integration-contract.md.
     jira = @{
-        baseUrl     = 'https://your-org.atlassian.net'
-        apiVersion  = 3            # 3 = Cloud (ADF), 2 = Data Center (wiki)
-        authMode    = 'basic'      # 'basic' = Cloud (email:token), 'bearer' = DC (PAT)
-        bodyFormat  = 'adf'        # 'adf' = Cloud, 'wiki' = DC
-        email       = 'svc-ppdm2jira@your-org.example'   # used only for basic auth
+        baseUrl     = 'https://jira.your-org.example'
+        apiVersion  = 2            # 2 = Data Center (wiki), 3 = Cloud (ADF)
+        authMode    = 'bearer'     # 'bearer' = DC (PAT), 'basic' = Cloud (email:token)
+        bodyFormat  = 'wiki'       # 'wiki' = DC, 'adf' = Cloud
+        # email     = 'svc-ppdm2jira@your-org.example'   # required only for authMode='basic' (Cloud)
         secretName  = 'jira-api-token'
         tlsValidate = $true
     }

@@ -70,6 +70,33 @@ Describe 'Invoke-ppdm2JiraRequest' {
             $r.Content.ok | Should -BeTrue
         }
     }
+    It 'honors the Retry-After header on 429 then returns the 200 result (DC v2)' {
+        InModuleScope ppdm2Jira {
+            $script:calls = 0
+            $script:slept = $null
+            Mock Start-Sleep { $script:slept = $Seconds }
+            Mock Invoke-ppdm2JiraHttp {
+                $script:calls++
+                if ($script:calls -eq 1) { return [pscustomobject]@{ StatusCode = 429; Headers = @{ 'Retry-After' = '7' }; Content = $null } }
+                return [pscustomobject]@{ StatusCode = 200; Headers = @{}; Content = [pscustomobject]@{ ok = $true } }
+            }
+            $c = [pscustomobject]@{ baseUrl='https://jira.dc'; apiBase='/rest/api/2'; authHeader='Bearer z'; tlsValidate=$true }
+            $r = Invoke-ppdm2JiraRequest -Client $c -Method GET -Path '/myself'
+            $script:calls | Should -Be 2
+            $script:slept | Should -Be 7          # took the Retry-After value, not the backoff default
+            $r.StatusCode | Should -Be 200
+        }
+    }
+    It 'gives up after MaxRetries when 429 persists' {
+        InModuleScope ppdm2Jira {
+            Mock Start-Sleep {}
+            Mock Invoke-ppdm2JiraHttp { [pscustomobject]@{ StatusCode = 429; Headers = @{ 'Retry-After' = '1' }; Content = $null } }
+            $c = [pscustomobject]@{ baseUrl='https://jira.dc'; apiBase='/rest/api/2'; authHeader='Bearer z'; tlsValidate=$true }
+            $r = Invoke-ppdm2JiraRequest -Client $c -Method GET -Path '/myself' -MaxRetries 2
+            $r.StatusCode | Should -Be 429
+            Should -Invoke Invoke-ppdm2JiraHttp -Times 3 -Exactly   # 1 initial + 2 retries
+        }
+    }
 }
 
 Describe 'Find-ppdm2JiraOpenIssue' {
@@ -100,6 +127,17 @@ Describe 'Find-ppdm2JiraOpenIssue' {
             $c = [pscustomobject]@{ baseUrl='https://x'; apiBase='/rest/api/2'; authHeader='Bearer z'; tlsValidate=$true }
             Find-ppdm2JiraOpenIssue -Client $c -Project 'OPS' -Label 'l' | Out-Null
             $script:path | Should -BeLike '*/rest/api/2/search'
+        }
+    }
+    It 'searches both the dedup and jobId labels when a correlation label is supplied' {
+        InModuleScope ppdm2Jira {
+            $script:body = $null
+            Mock Invoke-ppdm2JiraHttp { $script:body = $JsonBody; [pscustomobject]@{ StatusCode = 200; Headers = @{}; Content = [pscustomobject]@{ issues = @() } } }
+            $c = [pscustomobject]@{ baseUrl='https://jira.dc'; apiBase='/rest/api/2'; authHeader='Bearer z'; tlsValidate=$true }
+            Find-ppdm2JiraOpenIssue -Client $c -Project 'OPS' -Label 'ppdm_prod1_al-3' -CorrelationLabel 'ppdm_job_prod1_act-7' | Out-Null
+            $script:body | Should -BeLike '*labels in*'
+            $script:body | Should -BeLike '*ppdm_job_prod1_act-7*'
+            $script:body | Should -BeLike '*ppdm_prod1_al-3*'
         }
     }
 }
@@ -161,6 +199,20 @@ Describe 'Set-ppdm2JiraRemoteLink' {
             Mock Invoke-ppdm2JiraHttp { [pscustomobject]@{ StatusCode = 201; Headers = @{}; Content = [pscustomobject]@{ id = 1 } } }
             $c = [pscustomobject]@{ baseUrl='https://x'; apiBase='/rest/api/3'; authHeader='Basic z'; tlsValidate=$true }
             Set-ppdm2JiraRemoteLink -Client $c -Key 'OPS-1' -GlobalId 'ppdm_prod1_a1' -Url 'https://prod1/x' -Title 'PPDM prod1 a1' | Should -BeTrue
+        }
+    }
+    It 'sends a Data-Center-safe payload (globalId, application, relationship, object)' {
+        InModuleScope ppdm2Jira {
+            $script:body = $null
+            Mock Invoke-ppdm2JiraHttp { $script:body = $JsonBody; [pscustomobject]@{ StatusCode = 201; Headers = @{}; Content = [pscustomobject]@{ id = 1 } } }
+            $c = [pscustomobject]@{ baseUrl='https://jira.dc'; apiBase='/rest/api/2'; authHeader='Bearer z'; tlsValidate=$true }
+            Set-ppdm2JiraRemoteLink -Client $c -Key 'OPS-1' -GlobalId 'ppdm_prod1_a1' -Url 'https://prod1/x' -Title 'PPDM prod1 a1' | Out-Null
+            $obj = $script:body | ConvertFrom-Json
+            $obj.globalId     | Should -Be 'ppdm_prod1_a1'
+            $obj.relationship | Should -Not -BeNullOrEmpty
+            $obj.application.name | Should -Not -BeNullOrEmpty
+            $obj.object.url   | Should -Be 'https://prod1/x'
+            $obj.object.title | Should -Be 'PPDM prod1 a1'
         }
     }
     It 'returns $false when the remote link call fails (status >= 400)' {

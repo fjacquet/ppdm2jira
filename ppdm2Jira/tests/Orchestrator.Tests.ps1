@@ -70,4 +70,35 @@ Describe 'Invoke-ppdm2JiraSync' {
             Should -Invoke Set-ppdm2JiraWatermark -Times 0
         }
     }
+
+    It 'falls back to creating an issue when commenting returns 404 (false)' {
+        InModuleScope ppdm2Jira -Parameters @{ settingsPath = $script:settingsPath } {
+            Mock Set-ppdm2JiraWatermark {}
+            Mock Resolve-ppdm2JiraAction { [pscustomobject]@{ Action = 'Comment'; Key = 'OPS-9' } }
+            Mock Add-ppdm2JiraComment { $false }   # simulate the target issue having been deleted
+            $rc = Invoke-ppdm2JiraSync -ConfigPath $settingsPath
+            $rc | Should -Be 0
+            Should -Invoke Add-ppdm2JiraComment -Times 1 -Exactly
+            Should -Invoke New-ppdm2JiraIssue   -Times 1 -Exactly
+        }
+    }
+
+    It 'opens a single issue when an alert and activity share a jobId' {
+        InModuleScope ppdm2Jira -Parameters @{ settingsPath = $script:settingsPath } {
+            Mock Set-ppdm2JiraWatermark {}
+            Mock Get-ppdm2JiraAlerts {
+                [pscustomobject]@{ PSTypeName='ppdm2Jira.Incident'; source='alert'; severity='CRITICAL'; category='PROTECTION'
+                                   instanceId='prod1'; dedupKey='ppdm:prod1:al-1'; title='t'; body='b'; occurredAt=([datetime]'2026-06-21T00:00:00Z')
+                                   ppdmLinks=[pscustomobject]@{ id='al-1'; jobId='job-77'; deepLink='https://prod1/x' } }
+            }
+            Mock Get-ppdm2JiraFailedBackups {
+                [pscustomobject]@{ PSTypeName='ppdm2Jira.Incident'; source='activity'; severity='CRITICAL'; category='PROTECT'
+                                   instanceId='prod1'; dedupKey='ppdm:prod1:job-77'; title='t2'; body='b2'; occurredAt=([datetime]'2026-06-21T00:05:00Z')
+                                   ppdmLinks=[pscustomobject]@{ id='job-77'; jobId='job-77'; deepLink='https://prod1/y' } }
+            }
+            $rc = Invoke-ppdm2JiraSync -ConfigPath $settingsPath
+            $rc | Should -Be 0
+            Should -Invoke New-ppdm2JiraIssue -Times 1 -Exactly   # collapsed: one failure, one ticket
+        }
+    }
 }
