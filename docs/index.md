@@ -43,6 +43,7 @@ network I/O funnels through a single mockable boundary, so the test suite needs 
 - **[PRD](prd/PRD-ppdm-jira-integration.md)** — problem, requirements, success metrics
 - **[Design spec](superpowers/specs/2026-06-17-ppdm-jira-integration-design.md)** — architecture & data flow
 - **[Jira integration contract](design/jira-integration-contract.md)** — endpoints, ADF, dedup, field mapping
+- **[OpenAPI reference clients](swagger/generated/index.md)** — generated PowerShell clients validating the endpoint/field mapping above
 - **[ADRs](adr/index.md)** — the load-bearing decisions
 
 ## Status

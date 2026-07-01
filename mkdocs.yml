@@ -7,6 +7,20 @@ edit_uri: edit/main/docs/
 
 docs_dir: docs
 
+# The openapi-generator output under docs/swagger/generated/*/ is a reference artifact
+# (thousands of auto-generated per-endpoint/per-model pages), not curated documentation —
+# exclude it from the built site so it doesn't bloat pages/nav or trip strict-mode link
+# checks. The hand-written docs/swagger/generated/index.md is unaffected (not matched below).
+exclude_docs: |
+  swagger/generated/*/docs/
+  swagger/generated/*/src/
+  swagger/generated/*/tests/
+  swagger/generated/*/README.md
+  swagger/generated/*/Build.ps1
+  swagger/generated/*/appveyor.yml
+  swagger/generated/*/.openapi-generator/
+  swagger/generated/*/.openapi-generator-ignore
+
 theme:
   name: material
   favicon: assets/favicon.png
@@ -53,6 +67,7 @@ nav:
       - PRD: prd/PRD-ppdm-jira-integration.md
       - Design spec: superpowers/specs/2026-06-17-ppdm-jira-integration-design.md
       - Jira integration contract: design/jira-integration-contract.md
+      - OpenAPI reference clients: swagger/generated/index.md
   - Decisions (ADRs):
       - Overview: adr/index.md
       - ADR-0001 — Polling over push: adr/ADR-0001-polling-over-push.md
