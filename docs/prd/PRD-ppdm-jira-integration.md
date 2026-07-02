@@ -93,13 +93,13 @@ This project delivers an automated integration that **converts qualifying PPDM a
 
 ## 9. Routing & assignment
 
-A customer-editable mapping (`config/routing.psd1`) keyed on `(source, severity, category/subcategory)` resolving to `{project, component, labels, assigneeGroup, priority}`, plus a mandatory default rule. Routing is **data, not code**, so the customer can change team ownership without a release.
+A customer-editable mapping (`config/routing.psd1`) keyed on `(source, severity, category/subcategory)` resolving to `{project, issueType, component, labels, priority}`, plus a mandatory default rule (ADR-0004 as amended 2026-07-02 — team ownership is expressed via project/component; assignment to a person happens in Jira). Routing is **data, not code**, so the customer can change team ownership without a release.
 
 ## 10. Deduplication & lifecycle
 
 - Dedup key: `ppdm:<instanceId>:<alertId|activityId>`.
-- Jira is the **source of truth** for "does a ticket already exist"; the watermark only bounds the query window.
-- Recurrence → comment on the existing open ticket (with timestamp/occurrence count).
+- Jira is the **source of truth** for "does a ticket already exist"; the watermark only bounds the query window — each read starts `queryOverlapMinutes` (optional setting, default 5) before the watermark to cover visibility skew, and dedup makes the deliberate re-read idempotent.
+- Recurrence → comment on the existing open ticket (with the event's timestamp and dedup key).
 - Lifecycle is one-way in v1; ticket resolution is a human/Jira workflow concern.
 
 ## 11. Security & compliance

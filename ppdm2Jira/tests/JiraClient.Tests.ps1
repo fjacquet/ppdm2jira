@@ -33,6 +33,21 @@ Describe 'New-ppdm2JiraClient' {
             $c.authHeader | Should -Be 'Bearer pat999'
         }
     }
+    It 'exposes a typed integer apiVersion on the client object' {
+        InModuleScope ppdm2Jira {
+            Mock Get-ppdm2JiraSecret { 'pat999' }
+            $c = New-ppdm2JiraClient -Config @{ baseUrl='https://jira.dc.local'; apiVersion=2; authMode='bearer'; bodyFormat='wiki'; secretName='s' }
+            $c.apiVersion | Should -Be 2
+            $c.apiVersion | Should -BeOfType [int]
+        }
+    }
+    It 'throws on an unknown bodyFormat' {
+        InModuleScope ppdm2Jira {
+            Mock Get-ppdm2JiraSecret { 'pat999' }
+            { New-ppdm2JiraClient -Config @{ baseUrl='https://jira.dc.local'; apiVersion=2; authMode='bearer'; bodyFormat='markdown'; secretName='s' } } |
+                Should -Throw "*Unknown bodyFormat*"
+        }
+    }
 }
 
 Describe 'Get-ppdm2JiraBody' {
@@ -107,7 +122,7 @@ Describe 'Find-ppdm2JiraOpenIssue' {
                 $script:path = $Uri
                 [pscustomobject]@{ StatusCode = 200; Headers = @{}; Content = [pscustomobject]@{ issues = @([pscustomobject]@{ key = 'OPS-1' }) } }
             }
-            $c = [pscustomobject]@{ baseUrl='https://x'; apiBase='/rest/api/3'; authHeader='Basic z'; tlsValidate=$true }
+            $c = [pscustomobject]@{ baseUrl='https://x'; apiBase='/rest/api/3'; apiVersion=3; authHeader='Basic z'; tlsValidate=$true }
             $key = Find-ppdm2JiraOpenIssue -Client $c -Project 'OPS' -Label 'ppdm_prod1_a1'
             $key | Should -Be 'OPS-1'
             $script:path | Should -BeLike '*/rest/api/3/search/jql'
@@ -116,7 +131,7 @@ Describe 'Find-ppdm2JiraOpenIssue' {
     It 'returns $null when no open issue matches' {
         InModuleScope ppdm2Jira {
             Mock Invoke-ppdm2JiraHttp { [pscustomobject]@{ StatusCode = 200; Headers = @{}; Content = [pscustomobject]@{ issues = @() } } }
-            $c = [pscustomobject]@{ baseUrl='https://x'; apiBase='/rest/api/3'; authHeader='Basic z'; tlsValidate=$true }
+            $c = [pscustomobject]@{ baseUrl='https://x'; apiBase='/rest/api/3'; apiVersion=3; authHeader='Basic z'; tlsValidate=$true }
             Find-ppdm2JiraOpenIssue -Client $c -Project 'OPS' -Label 'ppdm_prod1_a1' | Should -BeNullOrEmpty
         }
     }
@@ -124,7 +139,7 @@ Describe 'Find-ppdm2JiraOpenIssue' {
         InModuleScope ppdm2Jira {
             $script:path = $null
             Mock Invoke-ppdm2JiraHttp { $script:path = $Uri; [pscustomobject]@{ StatusCode = 200; Headers = @{}; Content = [pscustomobject]@{ issues = @() } } }
-            $c = [pscustomobject]@{ baseUrl='https://x'; apiBase='/rest/api/2'; authHeader='Bearer z'; tlsValidate=$true }
+            $c = [pscustomobject]@{ baseUrl='https://x'; apiBase='/rest/api/2'; apiVersion=2; authHeader='Bearer z'; tlsValidate=$true }
             Find-ppdm2JiraOpenIssue -Client $c -Project 'OPS' -Label 'l' | Out-Null
             $script:path | Should -BeLike '*/rest/api/2/search'
         }
@@ -133,7 +148,7 @@ Describe 'Find-ppdm2JiraOpenIssue' {
         InModuleScope ppdm2Jira {
             $script:body = $null
             Mock Invoke-ppdm2JiraHttp { $script:body = $JsonBody; [pscustomobject]@{ StatusCode = 200; Headers = @{}; Content = [pscustomobject]@{ issues = @() } } }
-            $c = [pscustomobject]@{ baseUrl='https://jira.dc'; apiBase='/rest/api/2'; authHeader='Bearer z'; tlsValidate=$true }
+            $c = [pscustomobject]@{ baseUrl='https://jira.dc'; apiBase='/rest/api/2'; apiVersion=2; authHeader='Bearer z'; tlsValidate=$true }
             Find-ppdm2JiraOpenIssue -Client $c -Project 'OPS' -Label 'ppdm_prod1_al-3' -CorrelationLabel 'ppdm_job_prod1_act-7' | Out-Null
             $script:body | Should -BeLike '*labels in*'
             $script:body | Should -BeLike '*ppdm_job_prod1_act-7*'
@@ -193,6 +208,36 @@ Describe 'Invoke-ppdm2JiraHttp error mapping (PS7)' {
     }
 }
 
+Describe 'Invoke-ppdm2JiraHttp TLS opt-out (PS7)' {
+    # -SkipCertificateCheck only exists on PowerShell 7+ (HttpClient-based Invoke-WebRequest,
+    # which ignores the ServicePointManager callback that the 5.1/Desktop path uses); skip on 5.1.
+    It 'passes -SkipCertificateCheck to Invoke-WebRequest when a client disables tlsValidate' -Skip:($PSVersionTable.PSEdition -ne 'Core') {
+        InModuleScope ppdm2Jira {
+            $script:skipped = $null
+            Mock Invoke-WebRequest {
+                $script:skipped = [bool]$SkipCertificateCheck
+                [pscustomobject]@{ StatusCode = 200; Headers = @{}; Content = '{"ok":true}' }
+            }
+            $c = [pscustomobject]@{ baseUrl='https://jira.dc'; apiBase='/rest/api/2'; apiVersion=2; authHeader='Bearer z'; tlsValidate=$false }
+            $r = Invoke-ppdm2JiraRequest -Client $c -Method GET -Path '/myself' 3>$null   # 3>$null silences the deliberate skip warning
+            $script:skipped | Should -BeTrue
+            $r.StatusCode   | Should -Be 200
+        }
+    }
+    It 'does not skip certificate checks when tlsValidate is on' -Skip:($PSVersionTable.PSEdition -ne 'Core') {
+        InModuleScope ppdm2Jira {
+            $script:skipped = $null
+            Mock Invoke-WebRequest {
+                $script:skipped = [bool]$SkipCertificateCheck
+                [pscustomobject]@{ StatusCode = 200; Headers = @{}; Content = '{"ok":true}' }
+            }
+            $c = [pscustomobject]@{ baseUrl='https://jira.dc'; apiBase='/rest/api/2'; apiVersion=2; authHeader='Bearer z'; tlsValidate=$true }
+            Invoke-ppdm2JiraRequest -Client $c -Method GET -Path '/myself' | Out-Null
+            $script:skipped | Should -BeFalse
+        }
+    }
+}
+
 Describe 'Set-ppdm2JiraRemoteLink' {
     It 'returns $true when the remote link is created (status < 400)' {
         InModuleScope ppdm2Jira {
@@ -221,6 +266,27 @@ Describe 'Set-ppdm2JiraRemoteLink' {
             Mock Start-Sleep {}
             $c = [pscustomobject]@{ baseUrl='https://x'; apiBase='/rest/api/3'; authHeader='Basic z'; tlsValidate=$true }
             Set-ppdm2JiraRemoteLink -Client $c -Key 'OPS-1' -GlobalId 'ppdm_prod1_a1' -Url 'https://prod1/x' -Title 'PPDM prod1 a1' | Should -BeFalse
+        }
+    }
+}
+
+Describe 'New-ppdm2JiraIssueWithLink' {
+    It 'creates the issue, attaches the remote link with the sanitised globalId, and returns the key' {
+        InModuleScope ppdm2Jira {
+            Mock New-ppdm2JiraIssue { 'BKP-7' }
+            $script:gid = $null; $script:url = $null; $script:title = $null
+            Mock Set-ppdm2JiraRemoteLink { $script:gid = $GlobalId; $script:url = $Url; $script:title = $Title; $true }
+            $c = [pscustomobject]@{ baseUrl='https://jira.dc'; apiBase='/rest/api/2'; apiVersion=2; authHeader='Bearer z'; bodyFormat='wiki'; tlsValidate=$true }
+            $target = [pscustomobject]@{ project='BKP'; issueType='Incident'; component=$null; priorityId='1'; labels=@('ppdm') }
+            $inc = [pscustomobject]@{ title='t'; body='b'; dedupKey='ppdm:prod1:act-9'
+                                      ppdmLinks=[pscustomobject]@{ id='act-9'; deepLink='https://prod1/x' } }
+            $key = New-ppdm2JiraIssueWithLink -Client $c -Target $target -Incident $inc -InstanceId 'prod1'
+            $key           | Should -Be 'BKP-7'
+            $script:gid    | Should -Be 'ppdm_prod1_act-9'   # label-safe globalId stays in lockstep with the dedup label
+            $script:url    | Should -Be 'https://prod1/x'
+            $script:title  | Should -Be 'PPDM prod1 act-9'
+            Should -Invoke New-ppdm2JiraIssue      -Times 1 -Exactly
+            Should -Invoke Set-ppdm2JiraRemoteLink -Times 1 -Exactly
         }
     }
 }

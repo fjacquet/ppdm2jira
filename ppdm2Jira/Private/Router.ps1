@@ -69,7 +69,7 @@ function Resolve-ppdm2JiraTarget {
     $labels.Add((ConvertTo-ppdm2JiraLabel $Incident.dedupKey))
     $labels.Add(('source_{0}' -f $Incident.source))
     $category = Get-ppdm2JiraProp $Incident 'category'
-    if ($category) { $labels.Add(('cat_{0}' -f ($category.ToString().ToLower() -replace '[:\s]', '_'))) }
+    if ($category) { $labels.Add(('cat_{0}' -f (ConvertTo-ppdm2JiraLabel ($category.ToString().ToLower())))) }
     if ($match.ContainsKey('labels') -and $match.labels) { foreach ($l in $match.labels) { $labels.Add([string]$l) } }
     $corrLabel = Get-ppdm2JiraCorrelationLabel -Incident $Incident
     if ($corrLabel) { $labels.Add($corrLabel) }   # jobId correlation: created issue is findable by its sibling
@@ -80,11 +80,10 @@ function Resolve-ppdm2JiraTarget {
     }
 
     [pscustomobject]@{
-        project       = $match.project
-        issueType     = if ($match.ContainsKey('issueType') -and $match.issueType) { $match.issueType } else { 'Incident' }
-        component     = if ($match.ContainsKey('component')) { $match.component } else { $null }
-        assigneeGroup = if ($match.ContainsKey('assigneeGroup')) { $match.assigneeGroup } else { $null }
-        priorityId    = $priorityId
-        labels        = ($labels.ToArray() | Select-Object -Unique)
+        project    = $match.project
+        issueType  = if ($match.ContainsKey('issueType') -and $match.issueType) { $match.issueType } else { 'Incident' }
+        component  = if ($match.ContainsKey('component')) { $match.component } else { $null }
+        priorityId = $priorityId
+        labels     = ($labels.ToArray() | Select-Object -Unique)
     }
 }

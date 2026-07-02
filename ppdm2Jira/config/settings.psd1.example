@@ -1,6 +1,11 @@
 @{
     stateDir    = './state'
     routingPath = './config/routing.psd1'
+    # Minutes to look back before the watermark on every read, to cover clock/visibility skew
+    # (an activity's endTime / an alert's postedTime can lag slightly behind when it actually
+    # becomes queryable). Optional; defaults to 5 when omitted. Replays are idempotent (Jira
+    # search dedup, ADR-0003), so a larger overlap only costs a bit of extra query volume.
+    queryOverlapMinutes = 5
     instances   = @(
         @{ id = 'prod1'; baseUrl = 'https://prod1.ppdm.example/api/v2'; secretName = 'ppdm-prod1' }
     )

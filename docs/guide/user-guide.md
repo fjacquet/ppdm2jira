@@ -118,6 +118,7 @@ Copy-Item ./ppdm2jira/ppdm2Jira/config/routing.psd1.example  ./config/routing.ps
 @{
     stateDir    = './state'                       # where per-instance watermarks are written
     routingPath = './config/routing.psd1'
+    queryOverlapMinutes = 5                       # optional; minutes to re-read before the watermark (default 5)
     instances   = @(
         @{ id = 'prod1'; baseUrl = 'https://prod1.ppdm.example/api/v2'; secretName = 'ppdm-prod1' }
     )
@@ -135,6 +136,7 @@ Copy-Item ./ppdm2jira/ppdm2Jira/config/routing.psd1.example  ./config/routing.ps
 
 | Field | Meaning |
 |---|---|
+| `queryOverlapMinutes` | Optional (default `5`, integer ≥ 0). Each read starts this many minutes *before* the watermark to cover clock/visibility skew; dedup makes the deliberate re-read idempotent. |
 | `instances[].id` | Logical id used in dedup keys, titles, and the watermark filename. |
 | `instances[].baseUrl` | PPDM REST base (`.../api/v2`). |
 | `instances[].secretName` | Vault entry holding that instance's PPDM credential. |
@@ -143,18 +145,22 @@ Copy-Item ./ppdm2jira/ppdm2Jira/config/routing.psd1.example  ./config/routing.ps
 | `jira.secretName` | Vault entry holding the Jira API token / PAT. |
 | `tlsValidate` | TLS verification; disabling logs a warning per request. |
 
+Settings are validated **fail-fast** on every run: a missing/malformed key aborts before any
+instance is touched, with one aggregated error listing every problem.
+
 ### routing.psd1
 
 Ordered `rules` matched on `(source, severity, category/subcategory)`, first match wins, falling back
 to a **mandatory `default`** so no event is ever dropped. Each target sets `project`, `issueType`,
-`component`, optional `assigneeGroup`, extra `labels`, and a severity→`priority` id map.
+`component`, extra `labels`, and a severity→`priority` id map (ADR-0004 as amended 2026-07-02 —
+team ownership is routed via project/component; assignment to a person happens in Jira).
 
 ```powershell
 @{
     rules = @(
         @{ match = @{ source = 'activity'; severity = 'CRITICAL' }
            project = 'BKP'; issueType = 'Incident'; component = 'Backup Operations'
-           assigneeGroup = 'backup-team'; labels = @('backup'); priority = @{ CRITICAL = '1'; WARNING = '3' } }
+           labels = @('backup'); priority = @{ CRITICAL = '1'; WARNING = '3' } }
     )
     default = @{ project = 'OPS'; issueType = 'Task'; component = $null; labels = @(); priority = @{ CRITICAL = '2'; WARNING = '3' } }
 }

@@ -102,7 +102,7 @@ function ConvertTo-ppdm2JiraIncident {
         [ValidateNotNullOrEmpty()]
         [string] $InstanceId,
 
-        [string] $PpdmBaseUrl = (Get-Variable -Name 'PPDM_API_BaseUri' -Scope Global -ValueOnly -ErrorAction SilentlyContinue)
+        [string] $PpdmBaseUrl = (Get-ppdm2JiraPpdmBaseUrl)
     )
     begin { $uiRoot = Get-ppdm2JiraUiRoot $PpdmBaseUrl }
     process {

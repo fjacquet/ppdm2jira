@@ -37,19 +37,23 @@ orchestrator. Per the design spec the intended layout is:
 ```
 ppdm2Jira/
 ├─ Public/Invoke-ppdm2JiraSync.ps1   # orchestrator / entry point (per-instance loop)
-├─ Private/PpdmClient.ps1   # read side: build PPDM filter, page reads → Incidents   [exists]
-├─ Private/Normalizer.ps1   # pure transform: raw alert|activity → Incident model     [exists]
+├─ Private/PpdmClient.ps1   # read side: connect, build PPDM filter, page reads → Incidents
+├─ Private/Normalizer.ps1   # pure transform: raw alert|activity → Incident model
 ├─ Private/JiraClient.ps1   # write side: auth-abstracted find/create/comment/remotelink
 ├─ Private/Router.ps1       # Incident → Jira project/component/labels/priority
 ├─ Private/Dedup.ps1        # watermark + Jira-search "create vs comment" decision
-└─ Private/StateStore.ps1   # durable per-PPDM watermark read/write
+├─ Private/StateStore.ps1   # durable per-PPDM watermark read/write
+├─ Private/Config.ps1       # fail-fast settings validation (Assert-ppdm2JiraSettings)
+└─ Private/Logging.ps1      # structured per-incident log line
 ```
 
 The pipeline (one PPDM instance at a time): **PpdmClient** reads alerts+failed activities since the
-watermark → **Normalizer** shapes each into a common **`Incident`** → **Router** resolves the Jira
-target → **Dedup**/**JiraClient** searches for an open issue with the dedup label and either comments
-(recurrence) or creates → **StateStore** advances the watermark **only after the whole instance
-succeeds** (safe replay; never advance on partial failure).
+watermark minus a small overlap (`queryOverlapMinutes`, default 5) → **Normalizer** shapes each into
+a common **`Incident`** → **Router** resolves the Jira target → **Dedup**/**JiraClient** searches for
+an open issue with the dedup label and either comments (recurrence) or creates → **StateStore**
+advances the watermark **only after the whole instance succeeds** (safe replay; never advance on
+partial failure — and never backwards: the advance starts from the previous watermark, not the
+overlapped window).
 
 The **`Incident`** model (`PSTypeName 'ppdm2Jira.Incident'`) is the seam between read and write
 sides — both alerts and activities collapse into it so the Jira side never sees PPDM-shaped data.
@@ -98,7 +102,9 @@ mirrors in `docs/docx/` (treat the Markdown as source, the `.docx` as build outp
 ## Open validation items (M0 spike — don't assume these)
 
 Carried in the spec/contract and not yet confirmed against a live system:
-1. PPDM filter operator syntax (`eq`/`in`/`gt`) and exact timestamp format.
+1. PPDM filter operator syntax (`eq`/`in`/`gt`/`ge`), exact timestamp format, and `endTime` as an
+   activities filter field (it exists on the Activity model in the local swagger; live acceptance
+   unconfirmed — `scripts/Test-ppdm2JiraPpdmConnection.ps1` exercises the exact production filter).
 2. Jira deployment flavour — Cloud v3/ADF vs Data Center v2/wiki — and `/search/jql` pagination
    token shape (`nextPageToken`, not `startAt`).
 3. Whether one failure can surface as *both* an alert and an activity, and whether to correlate on

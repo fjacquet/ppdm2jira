@@ -5,7 +5,6 @@
             project       = 'BKP'
             issueType     = 'Incident'
             component     = 'Backup Operations'
-            assigneeGroup = 'backup-team'
             labels        = @('backup')
             priority      = @{ CRITICAL = '1'; WARNING = '3' }
         },
