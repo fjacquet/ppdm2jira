@@ -98,19 +98,21 @@ POST /rest/api/2/search        // Data Center v2 (primary)
 
 > **Cross-source correlation.** When a failure surfaces as **both** an alert and an activity (shared `jobId`), the pipeline collapses them so a single failure yields a single ticket. In addition to the per-event dedup label, the created issue carries a `ppdm_job_<instanceId>_<jobId>` label and the dedup search matches **either** label (`labels in (...)`), so a sibling event arriving in a later pass comments instead of duplicating. See `Merge-ppdm2JiraCorrelatedIncidents` / `Get-ppdm2JiraCorrelationLabel` (ADR-0003 extension).
 
+> **Query overlap.** Every PPDM read starts `queryOverlapMinutes` (optional `settings.psd1` key, integer ≥ 0, default **5**) before the stored watermark to cover clock/visibility skew. This dedup search is exactly what makes the deliberate re-read idempotent: an event seen twice matches its open issue and at most comments — it never duplicates.
+
 ## 5. Recurrence comment — payload
 
-`POST /rest/api/3/issue/{key}/comment` (body is ADF):
+`POST /rest/api/3/issue/{key}/comment` (body is ADF). The text carries the incident's `occurredAt` (UTC, falling back to the sync's current UTC time only when the event has no timestamp) and its raw `dedupKey`, so every recurrence is traceable to the exact PPDM event — format: `Recurred at <occurredAt> — event <dedupKey>`:
 
 ```json
 { "body": { "type": "doc", "version": 1, "content": [
   { "type": "paragraph", "content": [
-    { "type": "text", "text": "Recurred at 2026-06-17T02:14:00Z (occurrence #4). lastOccurrenceTime updated in PPDM." } ] } ] } }
+    { "type": "text", "text": "Recurred at 2026-06-17T02:14:00Z — event ppdm:prod1:a1b2c3d4" } ] } ] } }
 ```
 
 ## 6. Traceability back-link — remote link
 
-To satisfy the PRD traceability goal, attach a remote link pointing at the PPDM alert/activity. Setting `globalId` to the dedup key makes it **idempotent** (create-or-update), so re-runs don't pile up links. On **Data Center v2** the endpoint requires `application` and `relationship` (both optional on Cloud), so the `JiraClient` always sends them — DC-safe and harmless on Cloud (verified via context7):
+To satisfy the PRD traceability goal, attach a remote link pointing at the PPDM alert/activity — on **every** create, including the 404-fallback create after a stale dedup hit (`New-ppdm2JiraIssueWithLink` composes create + remote link so no path can skip it). Setting `globalId` to the dedup key makes it **idempotent** (create-or-update), so re-runs don't pile up links. On **Data Center v2** the endpoint requires `application` and `relationship` (both optional on Cloud), so the `JiraClient` always sends them — DC-safe and harmless on Cloud (verified via context7):
 
 ```json
 POST /rest/api/2/issue/{key}/remotelink        // DC v2 primary; /rest/api/3/... on Cloud
@@ -133,7 +135,7 @@ POST /rest/api/2/issue/{key}/remotelink        // DC v2 primary; /rest/api/3/...
 | `title` | `summary` (truncate to 255 chars) |
 | `body` (message / detailedDescription / result.error) | `description` (ADF) |
 | `dedupKey` | sanitised `labels[]` entry **and** remote-link `globalId` |
-| routing target | `project.key`, `components[]`, `assignee` (from `routing.psd1`, ADR-0004) |
+| routing target `{ project, issueType, component, labels, priority }` | `project.key`, `issuetype.name`, `components[]`, `labels[]`, `priority.id` (from `routing.psd1`, ADR-0004 as amended 2026-07-02 — no assignee/group field; assignment happens in Jira) |
 | `source`, `category` | additional `labels[]` (`source_alert`/`source_activity`, `cat_<category>`) |
 | `ppdmLinks` | description text + remote link (§6) |
 

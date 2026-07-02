@@ -30,7 +30,7 @@ Describe 'Get-ppdm2JiraFailedBackups' {
             $since = [datetime]::SpecifyKind([datetime]'2026-06-20T13:05:09', 'Utc')
             $out = Get-ppdm2JiraFailedBackups -InstanceId prod1 -Since $since
             $script:captured | Should -Match 'result\.status in \("FAILED","OK_WITH_ERRORS"\)'
-            $script:captured | Should -Match 'startTime ge "2026-06-20T13:05:09Z"'   # HH (24h), not hh
+            $script:captured | Should -Match 'endTime ge "2026-06-20T13:05:09Z"'   # HH (24h), not hh; visibility filter (not startTime)
             $script:captured | Should -Match 'classType in \("JOB","JOB_GROUP"\)'
             $out.source | Should -Be 'activity'
         }
@@ -48,6 +48,7 @@ Describe 'Get-ppdm2JiraAlerts' {
             $since = [datetime]::SpecifyKind([datetime]'2026-06-20T00:00:00', 'Utc')
             $out = Get-ppdm2JiraAlerts -InstanceId prod1 -Since $since -UnacknowledgedOnly
             $script:captured | Should -Match 'severity in \("CRITICAL","WARNING"\)'
+            $script:captured | Should -Match 'postedTime ge "2026-06-20T00:00:00Z"'   # ge (not gt): replay-safe
             $script:captured | Should -Match 'acknowledgement\.acknowledgeState eq "UNACKNOWLEDGED"'
             $out.source | Should -Be 'alert'
         }

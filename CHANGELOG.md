@@ -6,6 +6,53 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-07-02
+
+### Fixed
+- **Watermark correctness: a job straddling a sync pass can no longer be permanently missed.**
+  Activities are now filtered on **`endTime`** (the moment a failure becomes visible — the same field
+  the watermark advances on) instead of `startTime`, so a job that starts before the watermark and
+  fails after it matches the next window. Alerts moved from `postedTime gt` to `ge` (a same-second
+  alert could be skipped; replays are idempotent via dedup, so inclusive is strictly safer).
+- **`tlsValidate = $false` now actually works on PowerShell 7.** PS7's `Invoke-WebRequest` is
+  HttpClient-based and ignores the `ServicePointManager` callback the 5.1 path swaps; on
+  `PSEdition Core` the client now passes `-SkipCertificateCheck` (the callback swap remains the
+  Desktop/5.1 path; the per-request warning is unchanged).
+- **Every create now carries the PPDM remote link.** The `created(404-fallback)` path (stale dedup
+  hit → comment 404 → create) skipped the traceability remote link; both create paths now go through
+  the new `New-ppdm2JiraIssueWithLink` composition.
+- The Windows PowerShell 5.1 HTTP error path now disposes its `HttpWebResponse`/`StreamReader`
+  (`try/finally`), so a busy error path cannot leak sockets.
+
+### Changed
+- **New optional `queryOverlapMinutes` settings key (default 5, integer ≥ 0):** every PPDM read
+  starts that many minutes before the watermark to cover clock/visibility skew. The overlap lives
+  only in the orchestrator; the watermark still advances from the previous watermark (never
+  backwards).
+- **Fail-fast config validation:** `Assert-ppdm2JiraSettings` (new `Private/Config.ps1`) checks the
+  parsed settings before any instance is touched and throws one aggregated, operator-readable error
+  listing every problem.
+- **Recurrence comments are traceable:** `Recurred at <occurredAt> — event <dedupKey>` (falling back
+  to the current UTC time only when the event has no timestamp) instead of the sync wall-clock time.
+- `New-ppdm2JiraClient` validates `bodyFormat` and `apiVersion` (must be 2 or 3; also enforced by
+  `Assert-ppdm2JiraSettings`) at construction (same pattern as `authMode`) and exposes a typed
+  integer `apiVersion` that `Find-ppdm2JiraOpenIssue` branches on (previously a string match on
+  the URL path); the v2/v3 search bodies share one common shape.
+- `Format-ppdm2JiraTimestamp` is now the single owner of the ISO-8601 Zulu format string — the
+  recurrence-comment path and `Set-ppdm2JiraWatermark` reuse it. Watermark reads use
+  `[datetimeoffset]::Parse` (tolerates fractional seconds and hand-edited variants, still throws on
+  garbage) and never relabel a Local-kind time as UTC.
+- Internal layout restored to the folder convention: `Connect-ppdm2JiraInstance` moved to
+  `Private/PpdmClient.ps1`, `Write-ppdm2JiraLog` to the new `Private/Logging.ps1` (and no longer
+  returns the log line); `Public/Invoke-ppdm2JiraSync.ps1` contains only the exported function. New
+  shared helpers `ConvertTo-ppdm2JiraQuotedList` / `Get-ppdm2JiraPpdmBaseUrl` replace four inline
+  quoted-list builds and three session-global reads. Suite grew 52 → 70 tests.
+
+### Removed
+- **`assigneeGroup`** from the resolved routing target and all examples/docs — nothing ever consumed
+  it (Jira issue creation assigns users, not groups). ADR-0004 carries a dated amendment note; the
+  target shape is now `{ project, issueType, component, labels, priority }`.
+
 ## [0.3.0] - 2026-07-01
 
 ### Added
@@ -85,7 +132,8 @@ Initial implementation of the `ppdm2Jira` PowerShell module.
 - v1 is one-way (PPDM → Jira), scheduled, for 2–5 instances. No alert↔activity correlation, no
   write-back. See the ADRs for rationale.
 
-[Unreleased]: https://github.com/fjacquet/ppdm2jira/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/fjacquet/ppdm2jira/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/fjacquet/ppdm2jira/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/fjacquet/ppdm2jira/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/fjacquet/ppdm2jira/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/fjacquet/ppdm2jira/compare/v0.1.0...v0.1.1

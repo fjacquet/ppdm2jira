@@ -27,13 +27,23 @@ function Get-ppdm2JiraWatermark {
     # depending on JSON parser behavior. Ensure we work with it as a datetime.
     $wm = $obj.watermark
     if ($wm -is [datetime]) {
-        # Already parsed as datetime; ensure it's UTC
-        return [datetime]::SpecifyKind($wm, 'Utc')
-    } else {
-        # Still a string; parse it
-        $wmString = [string]$wm -replace 'Z$', ''
-        $dt = [datetime]::ParseExact($wmString, 'yyyy-MM-ddTHH:mm:ss', [System.Globalization.CultureInfo]::InvariantCulture)
-        return [datetime]::SpecifyKind($dt, 'Utc')
+        # Already parsed as datetime. Only relabel an Unspecified Kind as UTC -- a Local-kind
+        # value must be converted (ToUniversalTime), never relabelled, or its clock time would
+        # be silently misread as if it were already UTC.
+        if ($wm.Kind -eq 'Unspecified') {
+            return [datetime]::SpecifyKind($wm, 'Utc')
+        }
+        return $wm.ToUniversalTime()
+    }
+    else {
+        # Still a string. DateTimeOffset.Parse tolerates fractional seconds, explicit offsets,
+        # and other ISO-8601 variants without a manual "Z" strip, while still throwing loudly
+        # on garbage input (no silent ParseExact failure on hand-edited files).
+        # AssumeUniversal: an offset-less string (legacy/hand-edited file) is UTC -- without it,
+        # Parse assumes LOCAL time and the restored cursor would differ per host.
+        $wmString = [string]$wm
+        $styles = [Globalization.DateTimeStyles]::AssumeUniversal -bor [Globalization.DateTimeStyles]::AdjustToUniversal
+        return ([datetimeoffset]::Parse($wmString, [Globalization.CultureInfo]::InvariantCulture, $styles)).UtcDateTime
     }
 }
 
@@ -53,7 +63,7 @@ function Set-ppdm2JiraWatermark {
     $tmp  = "$path.tmp"
     $payload = [ordered]@{
         instanceId = $InstanceId
-        watermark  = $Time.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+        watermark  = Format-ppdm2JiraTimestamp $Time
     }
     $payload | ConvertTo-Json | Set-Content -Path $tmp -Encoding UTF8
     Move-Item -Path $tmp -Destination $path -Force

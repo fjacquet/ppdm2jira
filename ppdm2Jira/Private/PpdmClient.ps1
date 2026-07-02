@@ -20,6 +20,8 @@
 
     Timestamp format fixes a latent bug in the upstream module, which used `hh`
     (12-hour) — this uses `HH` (24-hour) UTC, required for a correct watermark.
+    Format-ppdm2JiraTimestamp is the single owner of that format string; reused
+    by the orchestrator's recurrence-comment path and StateStore's watermark write.
 #>
 
 Set-StrictMode -Version Latest
@@ -30,11 +32,41 @@ function Format-ppdm2JiraTimestamp {
     return $Value.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
 }
 
+function ConvertTo-ppdm2JiraQuotedList {
+    # Renders a string array as a PPDM/JQL-style quoted, comma-joined list: 'a','b' -> '"a","b"'.
+    [OutputType([string])]
+    param([Parameter(Mandatory)][string[]] $Values)
+    return (($Values | ForEach-Object { '"{0}"' -f $_ }) -join ',')
+}
+
+function Get-ppdm2JiraPpdmBaseUrl {
+    # Wraps the connected PPDM-pwsh session global so PpdmClient/Normalizer parameter
+    # defaults share one StrictMode-safe accessor instead of repeating the Get-Variable call.
+    [OutputType([string])]
+    param()
+    return (Get-Variable -Name 'PPDM_API_BaseUri' -Scope Global -ValueOnly -ErrorAction SilentlyContinue)
+}
+
 function Assert-ppdm2JiraPpdmCommand {
     param([Parameter(Mandatory)][string] $Name)
     if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
         throw "PPDM-pwsh cmdlet '$Name' not found. Install (Install-Module PPDM-pwsh) and connect (Connect-PPDMapiEndpoint) first."
     }
+}
+
+function Connect-ppdm2JiraInstance {
+    # PSAvoidUsingConvertToSecureStringWithPlainText: the secret is retrieved from
+    # a managed secrets store (Get-ppdm2JiraSecret), never hardcoded. ConvertTo-SecureString
+    # is required here only as an adapter to the PPDM-pwsh Connect-PPDMapiEndpoint API,
+    # which demands a SecureString token parameter.
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingConvertToSecureStringWithPlainText', '')]
+    param([Parameter(Mandatory)] $Instance)
+    if (-not (Get-Command Connect-PPDMapiEndpoint -ErrorAction SilentlyContinue)) {
+        throw "PPDM-pwsh cmdlet 'Connect-PPDMapiEndpoint' not found. Install PPDM-pwsh first."
+    }
+    $secret = Get-ppdm2JiraSecret -Name $Instance.secretName
+    $secure = ConvertTo-SecureString $secret -AsPlainText -Force
+    Connect-PPDMapiEndpoint -PPDM_API_URI $Instance.baseUrl -Token $secure | Out-Null
 }
 
 function Get-ppdm2JiraFailedBackups {
@@ -44,7 +76,10 @@ function Get-ppdm2JiraFailedBackups {
     .PARAMETER InstanceId
         Logical PPDM instance id (e.g. 'prod1').
     .PARAMETER Since
-        Watermark — only jobs with startTime >= this are returned. Default: 24h ago.
+        Watermark — only jobs with endTime >= this are returned. Default: 24h ago. An activity
+        becomes eligible exactly when it gets an endTime — the same field the watermark advances
+        on (design spec §"Watermark correctness"), so a job that starts before and finishes after
+        a sync pass is never permanently missed.
     .PARAMETER Status
         result.status values treated as actionable. Default: FAILED + OK_WITH_ERRORS.
     .PARAMETER Category
@@ -64,16 +99,17 @@ function Get-ppdm2JiraFailedBackups {
         [string[]]  $Status       = @('FAILED', 'OK_WITH_ERRORS'),
         [string[]]  $Category     = @('PROTECT', 'CLOUD_PROTECT'),
         [int]       $PageSize     = 200,
-        [string]    $PpdmBaseUrl  = (Get-Variable -Name 'PPDM_API_BaseUri' -Scope Global -ValueOnly -ErrorAction SilentlyContinue)
+        [string]    $PpdmBaseUrl  = (Get-ppdm2JiraPpdmBaseUrl)
     )
     Assert-ppdm2JiraPpdmCommand -Name 'Get-PPDMactivities'
 
     $sinceIso   = Format-ppdm2JiraTimestamp $Since
-    $statusList = ($Status   | ForEach-Object { '"{0}"' -f $_ }) -join ','
-    $catList    = ($Category | ForEach-Object { '"{0}"' -f $_ }) -join ','
+    $statusList = ConvertTo-ppdm2JiraQuotedList $Status
+    $catList    = ConvertTo-ppdm2JiraQuotedList $Category
 
     # job-level granularity: parentId ne null + classType in ("JOB","JOB_GROUP")
-    $filter = 'result.status in ({0}) and startTime ge "{1}" and parentId ne null and classType in ("JOB","JOB_GROUP") and category in ({2})' `
+    # endTime (not startTime) is the visibility filter — see .PARAMETER Since.
+    $filter = 'result.status in ({0}) and endTime ge "{1}" and parentId ne null and classType in ("JOB","JOB_GROUP") and category in ({2})' `
         -f $statusList, $sinceIso, $catList
     Write-Verbose "PPDM activities filter: $filter"
 
@@ -88,7 +124,7 @@ function Get-ppdm2JiraAlerts {
     .PARAMETER InstanceId
         Logical PPDM instance id (e.g. 'prod1').
     .PARAMETER Since
-        Watermark — only alerts with postedTime > this are returned. Default: 24h ago.
+        Watermark — only alerts with postedTime >= this are returned. Default: 24h ago.
     .PARAMETER Severity
         Alert severities to include. Default: CRITICAL + WARNING (INFORMATIONAL excluded, design out-of-scope).
     .PARAMETER Category
@@ -109,16 +145,19 @@ function Get-ppdm2JiraAlerts {
         [string[]]  $Category,
         [switch]    $UnacknowledgedOnly,
         [int]       $PageSize            = 200,
-        [string]    $PpdmBaseUrl         = (Get-Variable -Name 'PPDM_API_BaseUri' -Scope Global -ValueOnly -ErrorAction SilentlyContinue)
+        [string]    $PpdmBaseUrl         = (Get-ppdm2JiraPpdmBaseUrl)
     )
     Assert-ppdm2JiraPpdmCommand -Name 'Get-PPDMalerts'
 
     $sinceIso = Format-ppdm2JiraTimestamp $Since
-    $sevList  = ($Severity | ForEach-Object { '"{0}"' -f $_ }) -join ','
+    $sevList  = ConvertTo-ppdm2JiraQuotedList $Severity
 
-    $filter = 'severity in ({0}) and postedTime gt "{1}"' -f $sevList, $sinceIso
+    # ge (not gt): consistent with the activities filter and replay-safe -- Jira-search dedup
+    # (ADR-0003) already makes re-reading a boundary-second event idempotent, so matching it on
+    # every pass is strictly safer than the old gt, which could miss a same-second alert.
+    $filter = 'severity in ({0}) and postedTime ge "{1}"' -f $sevList, $sinceIso
     if ($Category) {
-        $catList = ($Category | ForEach-Object { '"{0}"' -f $_ }) -join ','
+        $catList = ConvertTo-ppdm2JiraQuotedList $Category
         $filter += ' and category in ({0})' -f $catList
     }
     if ($UnacknowledgedOnly) {

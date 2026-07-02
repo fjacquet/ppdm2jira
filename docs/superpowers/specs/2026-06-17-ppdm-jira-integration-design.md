@@ -90,17 +90,31 @@ Incident {
 for each PPDM instance:
   token = PpdmClient.Login(instance)               # POST /api/v2/login → Bearer
   wm    = StateStore.Read(instance)                # last successful watermark
-  raw   = PpdmClient.GetAlerts(wm)                 # severity in (CRITICAL,WARNING), postedTime > wm
-        + PpdmClient.GetFailedActivities(wm)        # result.status in (FAILED,OK_WITH_ERRORS), endTime > wm
+  since = wm - queryOverlapMinutes                 # skew overlap (settings key, default 5 min)
+  raw   = PpdmClient.GetAlerts(since)              # severity in (CRITICAL,WARNING), postedTime >= since
+        + PpdmClient.GetFailedActivities(since)     # result.status in (FAILED,OK_WITH_ERRORS), endTime >= since
   for each item in raw:
      inc    = Normalizer.ToIncident(item)
      target = Router.Resolve(inc, routingTable)    # default fallback if unmatched
      if JiraClient.FindOpen(inc.dedupKey):
-        JiraClient.Comment(existing, "recurred @ <ts>")
+        JiraClient.Comment(existing, "Recurred at <occurredAt> — event <dedupKey>")
      else:
         JiraClient.Create(target, inc)             # dedupKey on label + searchable field
-  StateStore.Write(instance, max(occurredAt))      # ONLY after full success
+        JiraClient.RemoteLink(key, inc)            # on EVERY create (incl. the 404-fallback)
+  StateStore.Write(instance, max(wm, occurredAt))  # ONLY after full success; never below wm
 ```
+
+**Watermark semantics (v0.4.0).** Activities are filtered on **`endTime`** — the moment a job
+becomes *visible* as failed, and the same field the watermark advances on — not `startTime`;
+otherwise a job that starts before a pass and fails after it would never match a later window
+(permanently missed). Alerts filter on `postedTime`. Both filters use `ge` (inclusive), and every
+read starts `queryOverlapMinutes` (optional settings key, integer ≥ 0, default **5**) before the
+watermark to cover clock/visibility skew. Re-reading is safe: Jira-search dedup (ADR-0003) makes
+replays idempotent, so a miss is the only dangerous direction. The watermark itself always advances
+from the previous watermark (never from the overlapped `since`), so it can never move backwards.
+The recurrence comment carries the incident's `occurredAt` and raw `dedupKey` (falling back to the
+current UTC time only when `occurredAt` is absent), so a comment is traceable to the exact PPDM
+event, not just "sometime during this sync pass".
 
 ## API contract details (from the provided specs)
 
@@ -119,7 +133,7 @@ Full detail in **`docs/design/jira-integration-contract.md`** (grounded in `docs
 
 ### Open validation items (M0 spike) — status 2026-07-01
 - Jira flavour: ✅ **confirmed Data Center v2** (Bearer/wiki/`/rest/api/2`); pagination ✅ resolved (DC `startAt`, Cloud `nextPageToken`) — see the Jira contract §4/§10.
-- PPDM filter operator syntax (`eq`/`in`/`gt`/`ge`/`ne`) + timestamp: ⏳ **partially** — the v2 spec confirms the `filter` param is free-form "PowerProtect Data Manager filter syntax"; operators are adopted from the proven PPDM-pwsh filters. Full confirmation needs live PPDM — run `scripts/Test-ppdm2JiraPpdmConnection.ps1`.
+- PPDM filter operator syntax (`eq`/`in`/`gt`/`ge`/`ne`) + timestamp + `endTime` as an activities filter field: ⏳ **partially** — the v2 spec confirms the `filter` param is free-form "PowerProtect Data Manager filter syntax" and `endTime` exists on the Activity model; operators are adopted from the proven PPDM-pwsh filters. Full confirmation needs live PPDM — run `scripts/Test-ppdm2JiraPpdmConnection.ps1` (it exercises the exact production filter).
 
 ## Error handling & resilience
 
@@ -148,6 +162,6 @@ PPDM write-back / acknowledgement (ADR-0005), MSP fleet scaling (ADR-0002 revisi
 
 ## Open items for M0 spike — status 2026-07-01
 
-1. PPDM filter operator syntax + date format — ⏳ partially confirmed (see above); live confirmation via `scripts/Test-ppdm2JiraPpdmConnection.ps1`.
+1. PPDM filter operator syntax + date format + `endTime` as an activities filter field — ⏳ partially confirmed (see above); live confirmation via `scripts/Test-ppdm2JiraPpdmConnection.ps1`.
 2. Jira deployment + auth — ✅ **confirmed Data Center v2** (Bearer PAT, `/rest/api/2`, wiki body).
 3. Same failure appearing as **both** alert and activity → ✅ **handled**: correlate on `jobId` to open one ticket (`Merge-ppdm2JiraCorrelatedIncidents` + `ppdm_job_<instanceId>_<jobId>` label). Confirm real-world overlap on the live smoke test.

@@ -144,7 +144,7 @@ wins**, falling back to a **mandatory `default`** so nothing is ever dropped.
     rules = @(
         @{ match = @{ source = 'activity'; severity = 'CRITICAL' }
            project = 'BKP'; issueType = 'Incident'; component = 'Backup Operations'
-           assigneeGroup = 'backup-team'; priority = @{ CRITICAL = '1'; WARNING = '3' } },
+           priority = @{ CRITICAL = '1'; WARNING = '3' } },
 
         @{ match = @{ source = 'alert' }
            project = 'OPS'; issueType = 'Incident'; component = 'Monitoring'
@@ -225,6 +225,9 @@ the watermark is *not* advanced and the run returns `1`; the next run re-reads t
 dedup prevents duplicate tickets. Net effect: **no event is ever lost or duplicated**
 ([ADR-0007](../adr/ADR-0007-per-incident-failure-fails-instance.md)).
 
+- Every read also starts a few minutes *before* the watermark (`queryOverlapMinutes` in
+  `settings.psd1`, optional, default `5`) to cover clock/visibility skew — dedup makes that
+  deliberate re-read free of duplicates, so a larger overlap only costs query volume.
 - Don't hand-edit watermark files. To "replay from scratch" for an instance, delete its
   `state/<id>.watermark.json` (be aware dedup still prevents duplicates for already-open tickets).
 

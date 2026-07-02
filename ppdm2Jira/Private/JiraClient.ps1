@@ -34,12 +34,26 @@ function New-ppdm2JiraClient {
         'bearer' { $auth = 'Bearer ' + $secret }
         default  { throw "Unknown authMode '$($Config.authMode)' (expected 'basic' or 'bearer')." }
     }
-    $apiBase = if ([int]$Config.apiVersion -eq 3) { '/rest/api/3' } else { '/rest/api/2' }
+    # Validated the same way as authMode: a typo here would otherwise silently send a plain
+    # string body to a v3 (ADF-only) API and surface later as a confusing Jira 400.
+    switch ($Config.bodyFormat) {
+        'adf'  { }
+        'wiki' { }
+        default { throw "Unknown bodyFormat '$($Config.bodyFormat)' (expected 'adf' or 'wiki')." }
+    }
+    # Same fail-fast rationale: any value other than 3 would silently route to the v2 branch
+    # (and a non-numeric value would die on the [int] cast with an unfriendly error).
+    if ($Config.apiVersion -notin 2, 3) {
+        throw "Unknown apiVersion '$($Config.apiVersion)' (expected 2 or 3)."
+    }
+    $apiVersion = [int]$Config.apiVersion
+    $apiBase = if ($apiVersion -eq 3) { '/rest/api/3' } else { '/rest/api/2' }
     $tls = if ($Config.ContainsKey('tlsValidate')) { [bool]$Config.tlsValidate } else { $true }
 
     [pscustomobject]@{
         baseUrl     = $Config.baseUrl
         apiBase     = $apiBase
+        apiVersion  = $apiVersion
         authMode    = $Config.authMode
         bodyFormat  = $Config.bodyFormat
         authHeader  = $auth
@@ -74,14 +88,22 @@ function Invoke-ppdm2JiraHttp {
         [string] $JsonBody,
         [switch] $SkipTls
     )
+    # PS7's Invoke-WebRequest is HttpClient-based and ignores ServicePointManager's certificate
+    # validation callback, so tlsValidate=$false silently did nothing there. -SkipCertificateCheck
+    # is the PS7-native opt-out; Windows PowerShell 5.1 (Desktop) has no such switch and keeps the
+    # callback-swap approach.
+    $isCore = $PSVersionTable.PSEdition -eq 'Core'
     $oldCallback = [System.Net.ServicePointManager]::ServerCertificateValidationCallback
     if ($SkipTls) {
         Write-Warning 'TLS validation disabled for this Jira request (explicit opt-out).'
-        [System.Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
+        if (-not $isCore) {
+            [System.Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
+        }
     }
     try {
         $params = @{ Uri = $Uri; Method = $Method; Headers = $Headers; UseBasicParsing = $true; ErrorAction = 'Stop' }
         if ($JsonBody) { $params.Body = $JsonBody; $params.ContentType = 'application/json' }
+        if ($SkipTls -and $isCore) { $params.SkipCertificateCheck = $true }
         $resp = Invoke-WebRequest @params
         $content = if ($resp.Content) { $resp.Content | ConvertFrom-Json } else { $null }
         return [pscustomobject]@{ StatusCode = [int]$resp.StatusCode; Headers = $resp.Headers; Content = $content }
@@ -91,11 +113,22 @@ function Invoke-ppdm2JiraHttp {
         $resp = Get-ppdm2JiraProp $ex 'Response'
         if ($null -ne $resp) {
             if ($resp -is [System.Net.HttpWebResponse]) {
-                # Windows PowerShell 5.1 path: WebException -> HttpWebResponse
-                $reader  = New-Object System.IO.StreamReader($resp.GetResponseStream())
-                $raw     = $reader.ReadToEnd()
-                $code    = [int]$resp.StatusCode
-                $headers = $resp.Headers
+                # Windows PowerShell 5.1 path: WebException -> HttpWebResponse. Dispose both the
+                # reader and the response so a busy error path can't leak the underlying socket.
+                try {
+                    $reader = New-Object System.IO.StreamReader($resp.GetResponseStream())
+                    try {
+                        $raw = $reader.ReadToEnd()
+                    }
+                    finally {
+                        $reader.Dispose()
+                    }
+                    $code    = [int]$resp.StatusCode
+                    $headers = $resp.Headers
+                }
+                finally {
+                    $resp.Dispose()
+                }
             }
             else {
                 # PowerShell 7+ path: HttpResponseException -> HttpResponseMessage
@@ -129,12 +162,12 @@ function Invoke-ppdm2JiraRequest {
     $headers = @{ Authorization = $Client.authHeader; Accept = 'application/json' }
     $json = if ($PSBoundParameters.ContainsKey('Body') -and $null -ne $Body) { $Body | ConvertTo-Json -Depth 20 } else { $null }
 
+    $retryable = @(429, 500, 502, 503, 504)
     $attempt = 0
     # Retries are bounded: 1 initial attempt + up to $MaxRetries retries (default 3 => at most 4 calls).
     while ($true) {
         $attempt++
         $r = Invoke-ppdm2JiraHttp -Uri $uri -Method $Method -Headers $headers -JsonBody $json -SkipTls:(-not $Client.tlsValidate)
-        $retryable = @(429, 500, 502, 503, 504)
         if (($r.StatusCode -in $retryable) -and ($attempt -le $MaxRetries)) {
             $delay = [int][math]::Min(30, [math]::Pow(2, $attempt))
             if ($r.Headers -and $r.Headers['Retry-After']) {
@@ -163,14 +196,14 @@ function Find-ppdm2JiraOpenIssue {
     else {
         'labels = "{0}"' -f $Label
     }
-    $jql = 'project = "{0}" AND {1} AND statusCategory != Done ORDER BY created DESC' -f $Project, $labelClause
-    if ($Client.apiBase -like '*api/3') {
-        $body = @{ jql = $jql; fields = @('key', 'status'); maxResults = 1 }
-        $res  = Invoke-ppdm2JiraRequest -Client $Client -Method POST -Path '/search/jql' -Body $body
+    $jql  = 'project = "{0}" AND {1} AND statusCategory != Done ORDER BY created DESC' -f $Project, $labelClause
+    $body = [ordered]@{ jql = $jql; fields = @('key', 'status'); maxResults = 1 }
+    if ($Client.apiVersion -eq 3) {
+        $res = Invoke-ppdm2JiraRequest -Client $Client -Method POST -Path '/search/jql' -Body $body
     }
     else {
-        $body = @{ jql = $jql; fields = @('key', 'status'); maxResults = 1; startAt = 0 }
-        $res  = Invoke-ppdm2JiraRequest -Client $Client -Method POST -Path '/search' -Body $body
+        $body.startAt = 0
+        $res = Invoke-ppdm2JiraRequest -Client $Client -Method POST -Path '/search' -Body $body
     }
     if ($res.StatusCode -in 401, 403) { throw "Jira auth/permission error ($($res.StatusCode)) searching for label '$Label'." }
     if ($res.StatusCode -ge 400) { throw "Jira search failed ($($res.StatusCode))." }
@@ -248,4 +281,37 @@ function Set-ppdm2JiraRemoteLink {
     }
     $res = Invoke-ppdm2JiraRequest -Client $Client -Method POST -Path ('/issue/{0}/remotelink' -f $Key) -Body $body
     return ($res.StatusCode -lt 400)
+}
+
+function New-ppdm2JiraIssueWithLink {
+    <#
+    .SYNOPSIS
+        Creates a Jira issue and attaches its traceability remote link in one step.
+    .DESCRIPTION
+        Composes New-ppdm2JiraIssue + Set-ppdm2JiraRemoteLink so every orchestrator create path
+        (first-seen Create and the 404-fallback after a stale/deleted dedup target) gets the
+        remote link consistently -- previously only the first path set it.
+    #>
+    # PSUseShouldProcessForStateChangingFunctions: internal helper called only by the
+    # orchestrator, which owns the -DryRun gate; it composes two already-suppressed writes.
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)] $Client,
+        [Parameter(Mandatory)] $Target,
+        [Parameter(Mandatory)] $Incident,
+        [Parameter(Mandatory)][string] $InstanceId
+    )
+    $key = New-ppdm2JiraIssue -Client $Client -Target $Target -Incident $Incident
+    $gid = ConvertTo-ppdm2JiraLabel $Incident.dedupKey
+    $url = Get-ppdm2JiraProp $Incident.ppdmLinks 'deepLink'
+    $ppdmId = Get-ppdm2JiraProp $Incident.ppdmLinks 'id'
+    $title = 'PPDM {0} {1}' -f $InstanceId, $ppdmId
+    # Best-effort: a failed link must not fail the sync (the issue exists; dedup still works via
+    # the label), but it must not be invisible either -- the back-link is the traceability goal.
+    $linked = Set-ppdm2JiraRemoteLink -Client $Client -Key $key -GlobalId $gid -Url $url -Title $title
+    if (-not $linked) {
+        Write-Warning ('Failed to attach PPDM remote link to {0} (globalId={1}).' -f $key, $gid)
+    }
+    return $key
 }

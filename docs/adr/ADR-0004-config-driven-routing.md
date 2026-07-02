@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | Accepted |
+| Status | Accepted (amended 2026-07-02) |
 | Date | 2026-06-17 |
 | Deciders | Backup Engineering, Customer |
 | Related | PRD §9, FR-5 |
@@ -16,10 +16,12 @@ Each ticket must reach the team that owns the affected system, ready for qualifi
 Drive routing from an external, human-readable mapping file (`config/routing.psd1`) keyed on `(source, severity, category/subcategory)` and resolving to:
 
 ```
-{ project, component, labels, assigneeGroup, priority }
+{ project, issueType, component, labels, priority }
 ```
 
 Rules are evaluated most-specific first; a **mandatory default fallback rule** guarantees every event is routable so nothing is silently dropped (FR-5).
+
+> **Amendment (2026-07-02).** The originally-decided target shape included an `assigneeGroup` field. It was removed in v0.4.0: nothing ever consumed it — Jira issue creation assigns **users**, not groups — so it was config that silently did nothing (YAGNI). The resolved target shape is now `{ project, issueType, component, labels, priority }` as shown above. Team-level ownership is expressed through `project`/`component` routing; assignment to a person happens in Jira.
 
 ## Consequences
 
