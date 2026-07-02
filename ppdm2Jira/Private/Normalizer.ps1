@@ -84,7 +84,8 @@ function ConvertTo-ppdm2JiraIncident {
     .PARAMETER InstanceId
         Logical PPDM instance id (e.g. 'prod1') — used in dedupKey and titles.
     .PARAMETER PpdmBaseUrl
-        Appliance base URL, for traceability deep links. Defaults to the connected session.
+        Appliance base URL, for traceability deep links. Passed explicitly by callers
+        (PpdmClient); no session/global default here so the Normalizer stays pure.
     .OUTPUTS
         PSCustomObject (PSTypeName 'ppdm2Jira.Incident')
     #>
@@ -102,7 +103,7 @@ function ConvertTo-ppdm2JiraIncident {
         [ValidateNotNullOrEmpty()]
         [string] $InstanceId,
 
-        [string] $PpdmBaseUrl = (Get-ppdm2JiraPpdmBaseUrl)
+        [string] $PpdmBaseUrl
     )
     begin { $uiRoot = Get-ppdm2JiraUiRoot $PpdmBaseUrl }
     process {

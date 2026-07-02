@@ -34,9 +34,10 @@ All notable changes to this project are documented here. The format is based on
   listing every problem.
 - **Recurrence comments are traceable:** `Recurred at <occurredAt> — event <dedupKey>` (falling back
   to the current UTC time only when the event has no timestamp) instead of the sync wall-clock time.
-- `New-ppdm2JiraClient` validates `bodyFormat` at construction (same pattern as `authMode`) and
-  exposes a typed integer `apiVersion` that `Find-ppdm2JiraOpenIssue` branches on (previously a
-  string match on the URL path); the v2/v3 search bodies share one common shape.
+- `New-ppdm2JiraClient` validates `bodyFormat` and `apiVersion` (must be 2 or 3; also enforced by
+  `Assert-ppdm2JiraSettings`) at construction (same pattern as `authMode`) and exposes a typed
+  integer `apiVersion` that `Find-ppdm2JiraOpenIssue` branches on (previously a string match on
+  the URL path); the v2/v3 search bodies share one common shape.
 - `Format-ppdm2JiraTimestamp` is now the single owner of the ISO-8601 Zulu format string — the
   recurrence-comment path and `Set-ppdm2JiraWatermark` reuse it. Watermark reads use
   `[datetimeoffset]::Parse` (tolerates fractional seconds and hand-edited variants, still throws on

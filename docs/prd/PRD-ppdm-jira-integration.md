@@ -97,7 +97,7 @@ A customer-editable mapping (`config/routing.psd1`) keyed on `(source, severity,
 
 ## 10. Deduplication & lifecycle
 
-- Dedup key: `ppdm:<instanceId>:<alertId|activityId>`.
+- Dedup key: `ppdm:<instanceId>:<eventId>` (the event id is the alert id or the activity id, depending on the source).
 - Jira is the **source of truth** for "does a ticket already exist"; the watermark only bounds the query window — each read starts `queryOverlapMinutes` (optional setting, default 5) before the watermark to cover visibility skew, and dedup makes the deliberate re-read idempotent.
 - Recurrence → comment on the existing open ticket (with the event's timestamp and dedup key).
 - Lifecycle is one-way in v1; ticket resolution is a human/Jira workflow concern.

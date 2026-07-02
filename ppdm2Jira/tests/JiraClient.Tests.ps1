@@ -48,6 +48,13 @@ Describe 'New-ppdm2JiraClient' {
                 Should -Throw "*Unknown bodyFormat*"
         }
     }
+    It 'throws on an apiVersion other than 2 or 3' {
+        InModuleScope ppdm2Jira {
+            Mock Get-ppdm2JiraSecret { 'pat999' }
+            { New-ppdm2JiraClient -Config @{ baseUrl='https://jira.dc.local'; apiVersion=4; authMode='bearer'; bodyFormat='wiki'; secretName='s' } } |
+                Should -Throw "*Unknown apiVersion*"
+        }
+    }
 }
 
 Describe 'Get-ppdm2JiraBody' {
@@ -287,6 +294,22 @@ Describe 'New-ppdm2JiraIssueWithLink' {
             $script:title  | Should -Be 'PPDM prod1 act-9'
             Should -Invoke New-ppdm2JiraIssue      -Times 1 -Exactly
             Should -Invoke Set-ppdm2JiraRemoteLink -Times 1 -Exactly
+        }
+    }
+    It 'still returns the key and warns (best-effort) when the remote link fails' {
+        InModuleScope ppdm2Jira {
+            Mock New-ppdm2JiraIssue { 'BKP-8' }
+            Mock Set-ppdm2JiraRemoteLink { $false }
+            $c = [pscustomobject]@{ baseUrl='https://jira.dc'; apiBase='/rest/api/2'; apiVersion=2; authHeader='Bearer z'; bodyFormat='wiki'; tlsValidate=$true }
+            $target = [pscustomobject]@{ project='BKP'; issueType='Incident'; component=$null; priorityId='1'; labels=@('ppdm') }
+            $inc = [pscustomobject]@{ title='t'; body='b'; dedupKey='ppdm:prod1:act-9'
+                                      ppdmLinks=[pscustomobject]@{ id='act-9'; deepLink='https://prod1/x' } }
+            # 3>&1 merges the warning stream so both the key and the warning can be asserted.
+            $out  = @(New-ppdm2JiraIssueWithLink -Client $c -Target $target -Incident $inc -InstanceId 'prod1' 3>&1)
+            $key  = @($out | Where-Object { $_ -isnot [System.Management.Automation.WarningRecord] })[0]
+            $warn = @($out | Where-Object { $_ -is    [System.Management.Automation.WarningRecord] })[0]
+            $key          | Should -Be 'BKP-8'
+            $warn.Message | Should -BeLike '*Failed to attach PPDM remote link to BKP-8*'
         }
     }
 }

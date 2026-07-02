@@ -41,6 +41,11 @@ function New-ppdm2JiraClient {
         'wiki' { }
         default { throw "Unknown bodyFormat '$($Config.bodyFormat)' (expected 'adf' or 'wiki')." }
     }
+    # Same fail-fast rationale: any value other than 3 would silently route to the v2 branch
+    # (and a non-numeric value would die on the [int] cast with an unfriendly error).
+    if ($Config.apiVersion -notin 2, 3) {
+        throw "Unknown apiVersion '$($Config.apiVersion)' (expected 2 or 3)."
+    }
     $apiVersion = [int]$Config.apiVersion
     $apiBase = if ($apiVersion -eq 3) { '/rest/api/3' } else { '/rest/api/2' }
     $tls = if ($Config.ContainsKey('tlsValidate')) { [bool]$Config.tlsValidate } else { $true }
@@ -302,6 +307,11 @@ function New-ppdm2JiraIssueWithLink {
     $url = Get-ppdm2JiraProp $Incident.ppdmLinks 'deepLink'
     $ppdmId = Get-ppdm2JiraProp $Incident.ppdmLinks 'id'
     $title = 'PPDM {0} {1}' -f $InstanceId, $ppdmId
-    Set-ppdm2JiraRemoteLink -Client $Client -Key $key -GlobalId $gid -Url $url -Title $title | Out-Null
+    # Best-effort: a failed link must not fail the sync (the issue exists; dedup still works via
+    # the label), but it must not be invisible either -- the back-link is the traceability goal.
+    $linked = Set-ppdm2JiraRemoteLink -Client $Client -Key $key -GlobalId $gid -Url $url -Title $title
+    if (-not $linked) {
+        Write-Warning ('Failed to attach PPDM remote link to {0} (globalId={1}).' -f $key, $gid)
+    }
     return $key
 }

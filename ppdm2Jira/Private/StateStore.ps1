@@ -39,8 +39,11 @@ function Get-ppdm2JiraWatermark {
         # Still a string. DateTimeOffset.Parse tolerates fractional seconds, explicit offsets,
         # and other ISO-8601 variants without a manual "Z" strip, while still throwing loudly
         # on garbage input (no silent ParseExact failure on hand-edited files).
+        # AssumeUniversal: an offset-less string (legacy/hand-edited file) is UTC -- without it,
+        # Parse assumes LOCAL time and the restored cursor would differ per host.
         $wmString = [string]$wm
-        return ([datetimeoffset]::Parse($wmString, [Globalization.CultureInfo]::InvariantCulture)).UtcDateTime
+        $styles = [Globalization.DateTimeStyles]::AssumeUniversal -bor [Globalization.DateTimeStyles]::AdjustToUniversal
+        return ([datetimeoffset]::Parse($wmString, [Globalization.CultureInfo]::InvariantCulture, $styles)).UtcDateTime
     }
 }
 

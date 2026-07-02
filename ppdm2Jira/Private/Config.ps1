@@ -34,6 +34,11 @@ function Assert-ppdm2JiraSettings {
                 $problems.Add("settings.jira.$key is required.")
             }
         }
+        # Value check, not just presence: any other value would silently route to the v2 API
+        # branch (or die on an [int] cast) deep in the per-instance loop.
+        if ($jira.ContainsKey('apiVersion') -and $jira.apiVersion -notin 2, 3) {
+            $problems.Add('settings.jira.apiVersion must be 2 or 3.')
+        }
     }
 
     if (-not $Settings.ContainsKey('instances') -or -not $Settings.instances -or @($Settings.instances).Count -eq 0) {

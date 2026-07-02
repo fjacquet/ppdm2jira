@@ -58,6 +58,17 @@ Describe 'Assert-ppdm2JiraSettings' {
             { Assert-ppdm2JiraSettings -Settings $s } | Should -Throw '*instances*'
         }
     }
+    It 'rejects an apiVersion other than 2 or 3' {
+        InModuleScope ppdm2Jira {
+            $s = @{
+                stateDir    = './state'
+                routingPath = './routing.psd1'
+                instances   = @( @{ id = 'prod1'; baseUrl = 'https://prod1/api/v2'; secretName = 's' } )
+                jira        = @{ baseUrl = 'https://x'; apiVersion = 4; authMode = 'bearer'; bodyFormat = 'wiki'; secretName = 'j' }
+            }
+            { Assert-ppdm2JiraSettings -Settings $s } | Should -Throw '*apiVersion must be 2 or 3*'
+        }
+    }
     It 'rejects a non-integer or negative queryOverlapMinutes' {
         InModuleScope ppdm2Jira {
             $base = @{

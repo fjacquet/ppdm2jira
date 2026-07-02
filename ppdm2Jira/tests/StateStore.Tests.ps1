@@ -37,6 +37,17 @@ Describe 'StateStore' {
         $back.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss', [Globalization.CultureInfo]::InvariantCulture) |
             Should -Be '2026-06-21T10:11:12'
     }
+    It 'treats an offset-less watermark string as UTC, not host-local time' {
+        $back = InModuleScope ppdm2Jira -Parameters @{ dir = $script:dir } {
+            param($dir)
+            New-Item -ItemType Directory -Path $dir -Force | Out-Null
+            '{ "instanceId": "prod1", "watermark": "2026-06-21T10:11:12" }' |
+                Set-Content -Path (Join-Path $dir 'prod1.watermark.json') -Encoding UTF8
+            Get-ppdm2JiraWatermark -InstanceId prod1 -StateDir $dir
+        }
+        # AssumeUniversal: same cursor on every host regardless of its local time zone.
+        $back | Should -Be ([datetime]::SpecifyKind([datetime]'2026-06-21T10:11:12', 'Utc'))
+    }
     It 'leaves no .tmp file after an atomic write' {
         InModuleScope ppdm2Jira -Parameters @{ dir = $script:dir } {
             param($dir)
